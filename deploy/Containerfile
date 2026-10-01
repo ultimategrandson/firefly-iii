@@ -1,0 +1,41 @@
+# Firefly III with local patches layered onto the official release image.
+#
+# Only the patched source files are copied in, so everything else (PHP, extensions, nginx,
+# vendor/, the entrypoint) is exactly what upstream ships. Bump BASE to the next release's digest
+# and rebuild; check the copied files still apply against that release first.
+#
+#   podman build --format docker -f deploy/Containerfile -t localhost/firefly-iii:6.7.6-rulefix .
+#
+# --format docker keeps the base image's HEALTHCHECK; the OCI format silently drops it.
+
+ARG BASE=docker.io/fireflyiii/core:version-6.7.6@sha256:1ddb762382b9e04270ca68dc0ba73291ed24e8701ec423f267bfcde7ad7ecf27
+FROM ${BASE}
+
+LABEL org.opencontainers.image.title="Firefly III (patched)" \
+      org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, and a reconciled column on account lists"
+
+# Applying a rule group honours "stop processing" per journal.
+COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
+COPY --chown=www-data:www-data app/Http/Controllers/RuleGroup/ExecutionController.php /var/www/html/app/Http/Controllers/RuleGroup/ExecutionController.php
+COPY --chown=www-data:www-data app/Api/V1/Controllers/Models/RuleGroup/TriggerController.php /var/www/html/app/Api/V1/Controllers/Models/RuleGroup/TriggerController.php
+
+# An account's "all transactions" list fills the budget, bill and attachment columns.
+COPY --chown=www-data:www-data app/Http/Controllers/Account/ShowController.php /var/www/html/app/Http/Controllers/Account/ShowController.php
+
+# Chart x-axes show every label, rotated if need be, instead of skipping every second one.
+COPY --chown=www-data:www-data public/v1/js/ff/charts.defaults.js /var/www/html/public/v1/js/ff/charts.defaults.js
+
+# Account lists show whether every transaction on the account is reconciled. The v3 page script is
+# bundled by Vite, so the whole rebuilt public/build replaces the release's (only the accounts
+# index chunk and the manifest differ).
+COPY --chown=www-data:www-data app/Support/JsonApi/Enrichments/AccountEnrichment.php /var/www/html/app/Support/JsonApi/Enrichments/AccountEnrichment.php
+COPY --chown=www-data:www-data app/Transformers/AccountTransformer.php /var/www/html/app/Transformers/AccountTransformer.php
+COPY --chown=www-data:www-data resources/views/accounts/index.blade.php /var/www/html/resources/views/accounts/index.blade.php
+COPY --chown=www-data:www-data resources/lang/en_US/list.php /var/www/html/resources/lang/en_US/list.php
+COPY --chown=www-data:www-data public/build/ /var/www/html/public/build/
+
+# Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
+# would never reach a browser that has the old one. Stamp each build with its own time.
+RUN sed -i -E "s/^'build_time' => [0-9]+,/'build_time' => $(date +%s),/" /var/www/html/config/firefly.php \
+ && grep -q "^'build_time' => $(date +%s | cut -c1-6)" /var/www/html/config/firefly.php
