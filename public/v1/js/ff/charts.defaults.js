@@ -80,6 +80,10 @@ var defaultChartOptions = {
                     display: false
                 },
                 ticks: {
+                    // Show every label: turn them up to vertical when space is short, rather than
+                    // dropping every second one, which leaves the axis looking broken.
+                    autoSkip: false,
+                    maxRotation: 90,
                     // break ticks when too long.
                     callback: function (value, index, values) {
                         return formatLabel(value, 20);
