@@ -54,6 +54,15 @@ class SearchRuleEngine implements RuleEngineInterface
     // always collect the triggers from the database, unless indicated otherwise.
     private bool  $refreshTriggers = true;
     private array $resultCount     = [];
+
+    /**
+     * Journals a rule with "stop processing" has already matched in the group being fired.
+     * Later rules in that group leave them alone, so the stop applies per journal.
+     */
+    private array $stoppedJournals = [];
+
+    /** Journals the most recently fired rule matched. */
+    private array $lastMatched     = [];
     private readonly Collection $rules;
     private User $user;
 
@@ -382,16 +391,29 @@ class SearchRuleEngine implements RuleEngineInterface
         }
         Log::debug(sprintf('Going to fire group #%d with %d rule(s)', $group->id, $rules->count()));
 
+        $this->stoppedJournals = [];
+        $singleJournal         = $this->targetsSingleJournal();
+
         /** @var Rule $rule */
         foreach ($rules as $rule) {
             Log::debug(sprintf('Going to fire rule #%d with order #%d from group #%d', $rule->id, $rule->order, $group->id));
             $result = $this->fireRule($rule);
             if ($result && true === $rule->stop_processing) {
-                Log::debug(sprintf('The rule was triggered and rule->stop_processing = true, so group #%d will stop processing further rules.', $group->id));
+                // When the engine runs on one journal, stopping the group is stopping that journal.
+                if ($singleJournal) {
+                    Log::debug(sprintf('The rule was triggered and rule->stop_processing = true, so group #%d will stop processing further rules.', $group->id));
 
-                return;
+                    return;
+                }
+
+                // Over many journals, only the ones this rule matched stop; the rest carry on.
+                foreach ($this->lastMatched as $journalId) {
+                    $this->stoppedJournals[$journalId] = true;
+                }
+                Log::debug(sprintf('Rule #%d was triggered and calls to stop processing: group #%d skips its %d journal(s) from now on.', $rule->id, $group->id, count($this->lastMatched)));
             }
         }
+        $this->stoppedJournals = [];
         Log::debug(sprintf('Done with rule group #%d.', $group->id));
     }
 
@@ -407,7 +429,7 @@ class SearchRuleEngine implements RuleEngineInterface
         $flags->applyRules   = false;
         $flags->fireWebhooks = false;
         $objects             = new TransactionGroupEventObjects();
-        $collection          = $this->findNonStrictRule($rule);
+        $collection          = $this->withoutStoppedJournals($this->findNonStrictRule($rule));
         $objects->collectFromCollection($collection);
 
         $this->processResults($rule, $collection);
@@ -455,7 +477,7 @@ class SearchRuleEngine implements RuleEngineInterface
         $flags->applyRules   = false;
         $flags->fireWebhooks = false;
         $objects             = new TransactionGroupEventObjects();
-        $collection          = $this->findStrictRule($rule);
+        $collection          = $this->withoutStoppedJournals($this->findStrictRule($rule));
 
         $objects->collectFromCollection($collection);
         $this->processResults($rule, $collection);
@@ -510,6 +532,51 @@ class SearchRuleEngine implements RuleEngineInterface
     /**
      * @throws FireflyException
      */
+    /**
+     * True when a journal_id operator limits this run to exactly one journal, as it does for
+     * a newly stored or updated transaction.
+     */
+    private function targetsSingleJournal(): bool
+    {
+        foreach ($this->operators as $operator) {
+            if ('journal_id' === $operator['type'] && !str_contains((string) $operator['value'], ',')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Drops the journals an earlier "stop processing" rule in this group has claimed, and
+     * remembers which journals remain, for the caller to claim in turn.
+     */
+    private function withoutStoppedJournals(Collection $collection): Collection
+    {
+        $stopped           = $this->stoppedJournals;
+        $filtered          = $collection
+            ->map(static function (array $group) use ($stopped): array {
+                $group['transactions'] = array_values(array_filter(
+                    $group['transactions'],
+                    static fn (array $journal): bool => !array_key_exists((int) $journal['transaction_journal_id'], $stopped)
+                ));
+
+                return $group;
+            })
+            ->filter(static fn (array $group): bool => count($group['transactions']) > 0)
+            ->values()
+        ;
+
+        $this->lastMatched = [];
+        foreach ($filtered as $group) {
+            foreach ($group['transactions'] as $journal) {
+                $this->lastMatched[] = (int) $journal['transaction_journal_id'];
+            }
+        }
+
+        return $filtered;
+    }
+
     private function processResults(Rule $rule, Collection $collection): void
     {
         Log::debug(sprintf('SearchRuleEngine:: Going to process %d results.', $collection->count()));

@@ -35,6 +35,7 @@ use FireflyIII\TransactionRules\Engine\RuleEngineInterface;
 use FireflyIII\User;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
@@ -94,10 +95,8 @@ final class ExecutionController extends Controller
         // add extra operators:
         $newRuleEngine->addOperator(['type' => 'account_id', 'value' => $accounts]);
 
-        // set rules:
-        $rules         = $this->ruleGroupRepository->getActiveRules($ruleGroup);
-
-        $newRuleEngine->setRules($rules);
+        // As a group, not a list of rules, so "stop processing" is honoured.
+        $newRuleEngine->setRuleGroups(new Collection([$ruleGroup]));
         $newRuleEngine->fire();
         $resultCount   = $newRuleEngine->getResults();
 
