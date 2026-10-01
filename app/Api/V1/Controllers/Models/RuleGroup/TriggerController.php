@@ -37,6 +37,7 @@ use FireflyIII\Transformers\TransactionGroupTransformer;
 use FireflyIII\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 use League\Fractal\Pagination\IlluminatePaginatorAdapter;
 use League\Fractal\Resource\Collection as FractalCollection;
 
@@ -141,7 +142,9 @@ final class TriggerController extends Controller
 
         /** @var RuleEngineInterface $ruleEngine */
         $ruleEngine = app(RuleEngineInterface::class);
-        $ruleEngine->setRules($rules);
+
+        // As a group, not a list of rules, so "stop processing" is honoured.
+        $ruleEngine->setRuleGroups(new Collection([$group]));
 
         // overrule the rule(s) if necessary.
         if (array_key_exists('start', $parameters) && null !== $parameters['start']) {
