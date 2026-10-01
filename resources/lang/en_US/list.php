@@ -43,6 +43,7 @@ return [
     'currentBalance'          => 'Current balance',
     'linked_to_rules'         => 'Relevant rules',
     'active'                  => 'Is active?',
+    'reconciled'              => 'Is reconciled?',
     'percentage'              => 'pct.',
     'recurring_transaction'   => 'Recurring transaction',
     'next_due'                => 'Next due',

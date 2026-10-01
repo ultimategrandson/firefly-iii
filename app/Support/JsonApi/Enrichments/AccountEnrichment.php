@@ -34,6 +34,7 @@ use FireflyIII\Models\AccountType;
 use FireflyIII\Models\Location;
 use FireflyIII\Models\Note;
 use FireflyIII\Models\ObjectGroup;
+use FireflyIII\Models\Transaction;
 use FireflyIII\Models\TransactionCurrency;
 use FireflyIII\Models\UserGroup;
 use FireflyIII\Support\Facades\Amount;
@@ -74,6 +75,7 @@ class AccountEnrichment implements EnrichmentInterface
     private array   $sort            = [];
     private ?Carbon $start           = null;
     private array   $startBalances   = [];
+    private array   $unreconciled    = [];
     private User $user;
     private UserGroup $userGroup;
 
@@ -101,6 +103,7 @@ class AccountEnrichment implements EnrichmentInterface
         $this->collectMetaData();
         $this->collectNotes();
         $this->collectLastActivities();
+        $this->collectUnreconciled();
         $this->collectLocations();
         $this->collectOpeningBalances();
         $this->collectObjectGroups();
@@ -181,6 +184,7 @@ class AccountEnrichment implements EnrichmentInterface
                 'account_number'         => null,
                 'notes'                  => $this->notes[$id] ?? null,
                 'last_activity'          => $this->lastActivities[$id] ?? null,
+                'unreconciled_count'     => $this->unreconciled[$id] ?? 0,
             ];
 
             // add object group if available
@@ -310,6 +314,26 @@ class AccountEnrichment implements EnrichmentInterface
     private function collectLastActivities(): void
     {
         $this->lastActivities = Steam::getLastActivities($this->ids);
+    }
+
+    /**
+     * Counts each account's transactions that are not marked reconciled, so a list can show
+     * whether an account is fully reconciled without loading its transactions.
+     */
+    private function collectUnreconciled(): void
+    {
+        $set = Transaction::query()
+            ->join('transaction_journals', 'transaction_journals.id', '=', 'transactions.transaction_journal_id')
+            ->whereNull('transaction_journals.deleted_at')
+            ->whereIn('transactions.account_id', $this->ids)
+            ->where('transactions.reconciled', false)
+            ->groupBy('transactions.account_id')
+            ->get(['transactions.account_id', DB::raw('COUNT(transactions.id) AS unreconciled')])
+        ;
+
+        foreach ($set as $entry) {
+            $this->unreconciled[(int) $entry->account_id] = (int) $entry->unreconciled;
+        }
     }
 
     private function collectLocations(): void

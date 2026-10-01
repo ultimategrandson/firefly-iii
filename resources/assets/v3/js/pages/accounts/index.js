@@ -255,6 +255,7 @@ let index = function () {
                                 current_balance: currentBalance,
                                 current_balance_float: currentBalanceFloat,
                                 active: current.attributes.active,
+                                unreconciled_count: parseInt(current.attributes.unreconciled_count ?? 0),
                                 last_activity: lastActivity,
                                 no_last_activity: noLastActivity,
                                 balance_difference: balanceDifference,
