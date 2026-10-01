@@ -53,6 +53,7 @@
                                 </th>
                             </template>
                             <th {{-- hide on SM --}} class="d-md-table-cell d-none">{{ trans('list.active') }}</th>
+                            <th {{-- hide on SM --}} class="d-md-table-cell d-none">{{ trans('list.reconciled') }}</th>
                             {{-- hide last activity to make room for other stuff --}}
                             <template x-if="'liabilities' !== objectType">
                                 {{-- hide on LG and smaller. --}}
@@ -209,6 +210,17 @@
                                         <span class="bi bi-x text-danger"></span>
                                     </template>
                                 </td>
+                                <td class="d-md-table-cell d-none">
+                                    <template x-if="0 === account.unreconciled_count">
+                                        <span class="bi bi-check text-success"></span>
+                                    </template>
+                                    <template x-if="account.unreconciled_count > 0">
+                                        <span class="text-danger" :title="account.unreconciled_count">
+                                            <span class="bi bi-x"></span>
+                                            <small x-text="account.unreconciled_count"></small>
+                                        </span>
+                                    </template>
+                                </td>
                                 <template x-if="'liabilities' !== objectType">
                                     <td>
                                         <template x-if="true === account.no_last_activity">
@@ -334,6 +346,7 @@
                                     </td>
                                 </template>
                                 <td>&nbsp;</td> <!-- is active column -->
+                                <td>&nbsp;</td> {{-- is reconciled column --}}
                                 <template x-if="'liabilities' !== objectType">
                                     <td>&nbsp;</td> {{-- last activity column --}}
                                 </template>

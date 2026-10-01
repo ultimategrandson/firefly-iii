@@ -238,6 +238,7 @@ let index = function () {
                                 primary_currency_id: parseInt(current.attributes.primary_currency_id),
 
                                 active: current.attributes.active,
+                                unreconciled_count: parseInt(current.attributes.unreconciled_count ?? 0),
                                 last_activity: lastActivity,
                                 no_last_activity: noLastActivity,
 

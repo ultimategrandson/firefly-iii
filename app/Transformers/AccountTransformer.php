@@ -153,6 +153,7 @@ class AccountTransformer extends AbstractTransformer
             'latitude'                        => $latitude,
             'zoom_level'                      => $zoomLevel,
             'last_activity'                   => $account->meta['last_activity']?->toAtomString(),
+            'unreconciled_count'              => $account->meta['unreconciled_count'] ?? 0,
             'links'                           => [['rel' => 'self', 'uri' => sprintf('/accounts/%d', $account->id)]],
         ];
     }
