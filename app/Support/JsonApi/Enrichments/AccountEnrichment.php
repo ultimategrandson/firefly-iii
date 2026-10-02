@@ -318,15 +318,18 @@ class AccountEnrichment implements EnrichmentInterface
 
     /**
      * Counts each account's transactions that are not marked reconciled, so a list can show
-     * whether an account is fully reconciled without loading its transactions.
+     * whether an account is fully reconciled without loading its transactions. An opening balance
+     * is where reconciling starts rather than something to reconcile, so it is not counted.
      */
     private function collectUnreconciled(): void
     {
         $set = Transaction::query()
             ->join('transaction_journals', 'transaction_journals.id', '=', 'transactions.transaction_journal_id')
+            ->join('transaction_types', 'transaction_types.id', '=', 'transaction_journals.transaction_type_id')
             ->whereNull('transaction_journals.deleted_at')
             ->whereIn('transactions.account_id', $this->ids)
             ->where('transactions.reconciled', false)
+            ->where('transaction_types.type', '!=', TransactionTypeEnum::OPENING_BALANCE->value)
             ->groupBy('transactions.account_id')
             ->get(['transactions.account_id', DB::raw('COUNT(transactions.id) AS unreconciled')])
         ;
