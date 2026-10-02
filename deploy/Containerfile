@@ -37,6 +37,7 @@ COPY --chown=www-data:www-data public/build/ /var/www/html/public/build/
 
 # Running balances show in the account's own currency (a cash deposit no longer falls back to the
 # primary currency) and carry the approximate primary-currency figure, as amounts do.
+COPY --chown=www-data:www-data app/View/Components/Elements/TransactionRunningBalance.php /var/www/html/app/View/Components/Elements/TransactionRunningBalance.php
 COPY --chown=www-data:www-data resources/views/components/elements/transaction-running-balance.blade.php /var/www/html/resources/views/components/elements/transaction-running-balance.blade.php
 COPY --chown=www-data:www-data resources/views/components/lists/groups-large.blade.php /var/www/html/resources/views/components/lists/groups-large.blade.php
 
