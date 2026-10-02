@@ -139,8 +139,9 @@
         <td class=" {{ $className }} text-end">
             <x-elements.transaction-running-balance
                 :balance-dirty="($transaction['source_balance_dirty'] ?? false) || ($transaction['destination_balance_dirty'] ?? false)"
-                :currency="['symbol' => $transaction['currency_symbol'],'decimal_places' => $transaction['currency_decimal_places']]"
+                :currency="['id' => $transaction['currency_id'], 'symbol' => $transaction['currency_symbol'],'decimal_places' => $transaction['currency_decimal_places']]"
                 :foreign="['id' => $transaction['foreign_currency_id'], 'symbol' => $transaction['foreign_currency_symbol'], 'decimal_places' => $transaction['foreign_currency_decimal_places']]"
+                :amounts="['amount' => $transaction['amount'], 'foreign' => $transaction['foreign_amount'], 'pc_amount' => $transaction['pc_amount'] ?? null, 'pc_foreign' => $transaction['pc_foreign_amount'] ?? null]"
                 :type="$transaction['transaction_type_type']"
                 :account="$account ?? null"
                 :source="['id' => $transaction['source_account_id'], 'balance_after' => $transaction['source_balance_after'], 'type' => $transaction['source_account_type']]"
