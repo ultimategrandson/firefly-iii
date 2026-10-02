@@ -1,66 +1,76 @@
 {{-- RUNNING BALANCE --}}
+@php
+    // Decide which side's balance belongs to the account being viewed, and which of the
+    // transaction's currencies that balance is kept in. A side with a foreign amount is held in
+    // the foreign currency; without one, both sides share the transaction currency.
+    $side      = null;
+    $inForeign = false;
+    $title     = '';
 
+    if ('Deposit' === $type) {
+        if ($source['id'] === $account?->id) {
+            [$side, $title] = ['source', 'Deposit, source'];
+        } else {
+            // A deposit from a revenue or cash account is booked in the destination's currency.
+            // From a liability it may be booked in the liability's, with the destination's
+            // currency as the foreign amount (#12043, #12169) — but only if there is one; without
+            // it the symbol was null and the balance was shown in the primary currency.
+            $fromRevenue = in_array($source['type'], ['Revenue account', 'Cash account'], true);
+            [$side, $title] = ['destination', $fromRevenue ? 'Deposit from revenue' : 'Deposit from liab'];
+            $inForeign = !$fromRevenue && null !== $foreign['id'];
+        }
+    } elseif ('Withdrawal' === $type || 'Opening balance' === $type) {
+        if ($account?->id == $source['id']) {
+            [$side, $title] = ['source', $type . ', source'];
+        } elseif ($account?->id == $destination['id']) {
+            [$side, $title] = ['destination', $type . ', dest'];
+        }
+    } elseif ('Reconciliation' === $type) {
+        if ($account?->id == $source['id']) {
+            [$side, $title] = ['zero', 'Reconciliation, src'];
+        } elseif ($account?->id == $destination['id']) {
+            [$side, $title] = ['destination', 'Reconciliation, dest'];
+        }
+    } elseif ('Transfer' === $type) {
+        if ($account?->id == $source['id']) {
+            [$side, $title] = ['source', 'Transfer, source'];
+        } else {
+            $inForeign = null !== $foreign['id'];
+            [$side, $title] = ['destination', $inForeign ? 'Transfer, dest, foreign currency' : 'Transfer, dest, normal currency'];
+        }
+    }
+
+    $balance = match ($side) {
+        'source'      => $source['balance_after'],
+        'destination' => $destination['balance_after'],
+        'zero'        => '0',
+        default       => null,
+    };
+
+    $shown = $inForeign
+        ? ['id' => $foreign['id'], 'symbol' => $foreign['symbol'], 'decimal_places' => $foreign['decimal_places']]
+        : $currency;
+
+    // The same balance in the primary currency, as the amount column shows it. Converted at this
+    // transaction's own rate, so it is marked approximate.
+    $pcBalance = null;
+    if (null !== $balance && $convertToPrimary && null !== ($shown['id'] ?? null) && (int) $primaryCurrency->id !== (int) $shown['id']) {
+        $base = $inForeign ? $amounts['foreign'] : $amounts['amount'];
+        $pc   = $inForeign ? $amounts['pc_foreign'] : $amounts['pc_amount'];
+        if (is_numeric($base) && is_numeric($pc) && 0 !== bccomp((string) $base, '0', 12)) {
+            $rate      = bcdiv(\FireflyIII\Support\Facades\Steam::positive((string) $pc), \FireflyIII\Support\Facades\Steam::positive((string) $base), 12);
+            $pcBalance = bcmul((string) $balance, $rate, 12);
+        }
+    }
+@endphp
 @if(false === $balanceDirty && '' !== $destination['balance_after'] && '' !== $source['balance_after'])
-    @if('Deposit' === $type)
-        @if($source['id'] === $account?->id)
-            <span title="Deposit, source">{!! format_amount_by_symbol($source['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @else
-            @if('Revenue account' === $source['type'])
-                <span title="Deposit from revenue">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-            @else
-                <span title="Deposit from liab">{!! format_amount_by_symbol($destination['balance_after'], $foreign['symbol'], $foreign['decimal_places']) !!}</span>
-            @endif
-            {{-- if this is a deposit from revenue account, use the destination account currency? For #12043 and #12169. Otherwise, keep at source account -}}
-            {{-- changed from normal currency_symbol to foreign_currency_symbol for #12043 --}}
+    @if(null !== $balance)
+        <span title="{{ $title }}">{!! format_amount_by_symbol($balance, $shown['symbol'], $shown['decimal_places']) !!}</span>
+        @if(null !== $pcBalance)
+            (~ {!! format_amount_by_symbol($pcBalance, $primaryCurrency->symbol, $primaryCurrency->decimal_places) !!})
         @endif
-    @elseif('Withdrawal' === $type)
-        {{-- withdrawal into a liability --}}
-        @if(in_array($destination['type'], ['Mortgage','Debt','Loan'], true))
-                @if($account?->id === $source['id'])
-                    <span title="Withdrawal, liab, source">{!! format_amount_by_symbol($source['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-                @elseif($account?->id === $destination['id'])
-                    <span title="Withdrawal, liab, dest">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-                @else
-                    -
-                @endif
-            {{-- withdrawal into an expense account --}}
-        @else
-            @if($account?->id === $source['id'])
-                <span title="Withdrawal, source">{!! format_amount_by_symbol($source['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-            @elseif($account?->id === $destination['id'])
-                <span title="Withdrawal, dest">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-            @else
-                -
-            @endif
-        @endif
-    @elseif('Opening balance' === $type)
-        @if($account?->id == $source['id'])
-            <span title="Opening balance, src">{!! format_amount_by_symbol($source['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @elseif($account?->id == $destination['id'])
-            <span title="Opening balance, dest">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @else
-            -
-        @endif
-    @elseif('Reconciliation' === $type)
-        @if($account?->id == $source['id'])
-            {{-- $source['balance_after'] --}}
-            <span title="Opening balance, src">{!! format_amount_by_symbol('0', $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @elseif($account?->id == $destination['id'])
-            <span title="Opening balance, dest">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @else
-            -
-        @endif
-    @elseif('Transfer' === $type)
-        @if($account?->id == $source['id'])
-            <span title="Transfer, source">{!! format_amount_by_symbol($source['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-        @else
-            @if(null === $foreign['id'])
-                <span title="Transfer, dest, normal currency">{!! format_amount_by_symbol($destination['balance_after'], $currency['symbol'], $currency['decimal_places']) !!}</span>
-            @endif
-            @if(null !== $foreign['id'])
-                <span title="Transfer, dest, foreign currency">{!! format_amount_by_symbol($destination['balance_after'], $foreign['symbol'], $foreign['decimal_places']) !!}</span>
-            @endif
-        @endif
+    @elseif(in_array($type, ['Withdrawal', 'Opening balance', 'Reconciliation'], true))
+        -
     @else
         &nbsp;
     @endif
