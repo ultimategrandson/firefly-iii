@@ -39,6 +39,9 @@ class TransactionRunningBalance extends Component
     public string $type;
     public ?Account $account;
 
+    /** The row's amounts, so the balance can be shown in the primary currency as well. */
+    public array $amounts;
+
     /**
      * Create a new component instance.
      */
@@ -49,7 +52,8 @@ class TransactionRunningBalance extends Component
         array $currency,
         array $foreign,
         string $type,
-        ?Account $account
+        ?Account $account,
+        array $amounts = []
     ) {
         $this->balanceDirty = $balanceDirty ?? false;
         $this->currency     = $currency;
@@ -58,6 +62,7 @@ class TransactionRunningBalance extends Component
         $this->source       = $source;
         $this->destination  = $destination;
         $this->account      = $account;
+        $this->amounts      = $amounts;
     }
 
     /**

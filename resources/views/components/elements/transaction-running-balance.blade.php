@@ -55,8 +55,8 @@
     // transaction's own rate, so it is marked approximate.
     $pcBalance = null;
     if (null !== $balance && $convertToPrimary && null !== ($shown['id'] ?? null) && (int) $primaryCurrency->id !== (int) $shown['id']) {
-        $base = $inForeign ? $amounts['foreign'] : $amounts['amount'];
-        $pc   = $inForeign ? $amounts['pc_foreign'] : $amounts['pc_amount'];
+        $base = $inForeign ? ($amounts['foreign'] ?? null) : ($amounts['amount'] ?? null);
+        $pc   = $inForeign ? ($amounts['pc_foreign'] ?? null) : ($amounts['pc_amount'] ?? null);
         if (is_numeric($base) && is_numeric($pc) && 0 !== bccomp((string) $base, '0', 12)) {
             $rate      = bcdiv(\FireflyIII\Support\Facades\Steam::positive((string) $pc), \FireflyIII\Support\Facades\Steam::positive((string) $base), 12);
             $pcBalance = bcmul((string) $balance, $rate, 12);
