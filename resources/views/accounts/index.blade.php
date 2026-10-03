@@ -53,7 +53,10 @@
                                 </th>
                             </template>
                             <th {{-- hide on SM --}} class="d-md-table-cell d-none">{{ trans('list.active') }}</th>
-                            <th {{-- hide on SM --}} class="d-md-table-cell d-none">{{ trans('list.reconciled') }}</th>
+                            {{-- only asset accounts can be reconciled --}}
+                            @if('asset' === $objectType)
+                                <th {{-- hide on SM --}} class="d-md-table-cell d-none">{{ trans('list.reconciled') }}</th>
+                            @endif
                             {{-- hide last activity to make room for other stuff --}}
                             <template x-if="'liabilities' !== objectType">
                                 {{-- hide on LG and smaller. --}}
@@ -216,6 +219,7 @@
                                         <span class="bi bi-x text-danger"></span>
                                     </template>
                                 </td>
+                                @if('asset' === $objectType)
                                 <td class="d-md-table-cell d-none">
                                     <template x-if="0 === account.unreconciled_count">
                                         <span class="bi bi-check text-success"></span>
@@ -227,6 +231,7 @@
                                         </span>
                                     </template>
                                 </td>
+                                @endif
                                 <template x-if="'liabilities' !== objectType">
                                     <td>
                                         <template x-if="true === account.no_last_activity">
@@ -352,7 +357,9 @@
                                     </td>
                                 </template>
                                 <td>&nbsp;</td> <!-- is active column -->
-                                <td>&nbsp;</td> {{-- is reconciled column --}}
+                                @if('asset' === $objectType)
+                                    <td>&nbsp;</td> {{-- is reconciled column --}}
+                                @endif
                                 <template x-if="'liabilities' !== objectType">
                                     <td>&nbsp;</td> {{-- last activity column --}}
                                 </template>
