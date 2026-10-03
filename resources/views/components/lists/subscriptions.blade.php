@@ -75,12 +75,22 @@
                                         @endif
                                     </td>
                                     <td class="text-end text-nowrap">
+                @php
+                    // "~" marks the average of a range; a fixed amount is shown as it is. The
+                    // primary-currency figure only adds something when the subscription is in
+                    // another currency.
+                    $isRange   = 0 !== bccomp((string) $entry['amount_min'], (string) $entry['amount_max']);
+                    $average   = bcdiv(bcadd((string) $entry['amount_min'], (string) $entry['amount_max']), '2');
+                    $pcAverage = null;
+                    if ((int) $entry['currency_id'] !== (int) $primaryCurrency->id && null !== $entry['pc_amount_max'] && '0' !== $entry['pc_amount_max']) {
+                        $pcAverage = bcdiv(bcadd((string) $entry['pc_amount_min'], (string) $entry['pc_amount_max']), '2');
+                    }
+                @endphp
                 <span class="mr-2"
-                      title="{{ e(format_amount_by_symbol($entry['amount_min'], $entry['currency_symbol'], $entry['currency_decimal_places'], false)) }} -- {{ e(format_amount_by_symbol($entry['amount_max'], $entry['currency_symbol'], $entry['currency_decimal_places'], false)) }}">
-                    ~ {!! format_amount_by_symbol(($entry['amount_max'] + $entry['amount_min'])/2, $entry['currency_symbol'], $entry['currency_decimal_places'])  !!}
-
-                    @if('0' !== $entry['pc_amount_max'] && null !== $entry['pc_amount_max'])
-                        (~ {!! format_amount_by_symbol(($entry['pc_amount_max'] + $entry['pc_amount_min'])/2, $primaryCurrency->symbol, $primaryCurrency->decimal_places) !!})
+                      @if($isRange) title="{{ e(format_amount_by_symbol($entry['amount_min'], $entry['currency_symbol'], $entry['currency_decimal_places'], false)) }} -- {{ e(format_amount_by_symbol($entry['amount_max'], $entry['currency_symbol'], $entry['currency_decimal_places'], false)) }}" @endif>
+                    @if($isRange)~ @endif{!! format_amount_by_symbol($average, $entry['currency_symbol'], $entry['currency_decimal_places'])  !!}
+                    @if(null !== $pcAverage)
+                        (~ {!! format_amount_by_symbol($pcAverage, $primaryCurrency->symbol, $primaryCurrency->decimal_places) !!})
                     @endif
                 </span>
                                     </td>
@@ -179,12 +189,14 @@
                                 </tr>
                             @endforeach
                             @if(array_key_exists($objectGroupOrder, $sums))
+                                {{-- name the currency of a sum only when there is more than one --}}
+                                @php $manyCurrencies = count($sums[$objectGroupOrder]) > 1; @endphp
                                 @foreach($sums[$objectGroupOrder] as $sum)
                                     @if('0' !== $sum['avg'])
                                         <tr {{-- hide on MD and smaller --}} class="d-lg-table-row d-none">
                                             <td class="d-xl-table-cell d-none">&nbsp;</td> <!-- handle -->
                                             <td colspan="2" class="text-end"> <!-- title -->
-                                                <small>{{ __('firefly.sum') }} ({{ $sum['currency_name'] }})
+                                                <small>{{ __('firefly.sum') }} @if($manyCurrencies)({{ $sum['currency_code'] }})@endif
                                                     ({{ __('firefly.active_exp_bills_only') }})</small>
                                             </td>
                                             <td class="text-end text-nowrap"> <!-- amount -->
@@ -197,7 +209,7 @@
                                         <tr {{-- hide on MD and smaller --}} class="d-lg-table-row d-none">
                                             <td class="d-xl-table-cell d-none">&nbsp;</td> <!-- handle -->
                                             <td colspan="2" class="text-end"> <!-- title -->
-                                                <small>{{ __('firefly.sum') }} ({{ $sum['currency_name'] }})
+                                                <small>{{ __('firefly.sum') }} @if($manyCurrencies)({{ $sum['currency_code'] }})@endif
                                                     ({{ __('firefly.left_to_pay_active_bills') }})</small>
                                             </td>
                                             <td class="text-end text-nowrap"> <!-- amount -->
@@ -211,7 +223,7 @@
                                             <td class="d-xl-table-cell d-none">&nbsp;</td> <!-- handle -->
                                             <td colspan="2" class="text-end"> <!-- title -->
                                                 <small>{{ __('firefly.per_period_sum_' . $sum['period']) }}
-                                                    ({{ $sum['currency_name'] }})
+                                                    @if($manyCurrencies)({{ $sum['currency_code'] }})@endif
                                                     ({{ __('firefly.active_bills_only') }})</small>
                                             </td>
                                             <td class="text-end text-nowrap"> <!-- amount -->
@@ -241,11 +253,12 @@
 
     <table class="table table-bordered table-sm table-hover mb-2">
         <tbody>
+        @php $manyCurrencies = count($totals) > 1; @endphp
         @foreach($totals as $sum)
             @if('0' !== $sum['avg'])
                 <tr>
                     <td class="text-end"> <!-- title -->
-                        <small>{{ __('firefly.sum') }} ({{ $sum['currency_name'] }})
+                        <small>{{ __('firefly.sum') }} @if($manyCurrencies)({{ $sum['currency_code'] }})@endif
                             ({{ __('firefly.active_exp_bills_only_total') }})</small>
                     </td>
                     <td class="text-end text-nowrap"> <!-- amount -->
@@ -256,7 +269,7 @@
             @if('0' !== $sum['per_period'])
                 <tr>
                     <td class="text-end"> <!-- title -->
-                        <small>{{ __('firefly.per_period_sum_' . $sum['period']) }} ({{ $sum['currency_name'] }})
+                        <small>{{ __('firefly.per_period_sum_' . $sum['period']) }} @if($manyCurrencies)({{ $sum['currency_code'] }})@endif
                             ({{ __('firefly.active_bills_only_total') }})</small>
                     </td>
                     <td class="text-end text-nowrap"> <!-- amount -->
