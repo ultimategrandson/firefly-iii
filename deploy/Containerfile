@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, and running balances in their own currency"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, and balances shown from the user's side"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -40,6 +40,10 @@ COPY --chown=www-data:www-data public/build/ /var/www/html/public/build/
 COPY --chown=www-data:www-data app/View/Components/Elements/TransactionRunningBalance.php /var/www/html/app/View/Components/Elements/TransactionRunningBalance.php
 COPY --chown=www-data:www-data resources/views/components/elements/transaction-running-balance.blade.php /var/www/html/resources/views/components/elements/transaction-running-balance.blade.php
 COPY --chown=www-data:www-data resources/views/components/lists/groups-large.blade.php /var/www/html/resources/views/components/lists/groups-large.blade.php
+
+# Balances are shown from the user's side: revenue as a gain, a debt owed as negative. The list's
+# half is in the rebuilt public/build above; the running balance component is copied above too.
+COPY --chown=www-data:www-data resources/views/accounts/show.blade.php /var/www/html/resources/views/accounts/show.blade.php
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
