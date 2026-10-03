@@ -451,7 +451,7 @@ function drawAChart(URL, container, chartType, options, colorData) {
             }
             annotations = annotations.concat(dueDateAnnotations(dueDates, data.labels));
             if (annotations.length > 0) {
-                chartOpts.options.annotation = {annotations: annotations};
+                chartOpts.options.annotation = {events: ['mouseenter', 'mouseleave'], annotations: annotations};
             }
             allCharts[container] = new Chart(ctx, chartOpts);
         }
@@ -463,8 +463,9 @@ function drawAChart(URL, container, chartType, options, colorData) {
 }
 
 /**
- * A dashed vertical line per due date, as made by DueDateController. Labels are staggered so that
- * neighbouring ones don't overlap; due dates that aren't on the chart's x-axis are skipped.
+ * A dashed red vertical line per due date, as made by DueDateController, labelled when the mouse is
+ * over it. The plugin only notices the mouse within a line's width, so each line comes with a wide
+ * invisible twin that carries the label. Due dates that aren't on the chart's x-axis are skipped.
  *
  * @param dueDates
  * @param labels
@@ -472,8 +473,11 @@ function drawAChart(URL, container, chartType, options, colorData) {
  */
 function dueDateAnnotations(dueDates, labels) {
     "use strict";
-    var color = 'rgb(200, 78, 16)';
     var result = [];
+    var toggleLabel = function (element, enabled) {
+        element.options.label.enabled = enabled;
+        element.chartInstance.update(0);
+    };
     for (var i = 0; i < dueDates.length; i++) {
         if (-1 === labels.indexOf(dueDates[i].label)) {
             continue;
@@ -484,22 +488,36 @@ function dueDateAnnotations(dueDates, labels) {
             mode: 'vertical',
             scaleID: 'x-axis-0',
             value: dueDates[i].label,
-            borderColor: color,
+            borderColor: 'rgb(220, 53, 69)',
             borderWidth: 1,
-            borderDash: [4, 4],
+            borderDash: [4, 4]
+        });
+        result.push({
+            type: 'line',
+            id: 'due-date-hover-' + i,
+            mode: 'vertical',
+            scaleID: 'x-axis-0',
+            value: dueDates[i].label,
+            borderColor: 'rgba(0,0,0,0)',
+            borderWidth: 12,
             label: {
-                backgroundColor: 'rgba(200, 78, 16, 0.8)',
+                backgroundColor: 'rgba(220, 53, 69, 0.9)',
                 fontFamily: "sans-serif",
                 fontSize: 11,
                 fontStyle: 'normal',
                 fontColor: '#fff',
-                xPadding: 3,
-                yPadding: 3,
+                xPadding: 4,
+                yPadding: 4,
                 cornerRadius: 3,
                 position: 'top',
-                yAdjust: (result.length % 3) * 22,
-                enabled: true,
+                enabled: false,
                 content: dueDates[i].text
+            },
+            onMouseenter: function () {
+                toggleLabel(this, true);
+            },
+            onMouseleave: function () {
+                toggleLabel(this, false);
             }
         });
     }

@@ -598,12 +598,15 @@ function colorizeAllData(data) {
     return data;
 }
 
-// a dashed vertical line per due date (see DueDateController). Labels are staggered so that neighbouring
-// ones don't overlap; due dates that aren't on the chart's x-axis are skipped.
+// a dashed red vertical line per due date (see DueDateController), labelled when the mouse is over it.
+// Due dates that aren't on the chart's x-axis are skipped.
 function dueDateAnnotations(dueDates, labels, yScaleID) {
     let locale = window.store.get("locale");
     let annotations = {};
-    let count = 0;
+    let toggleLabel = (context, display) => {
+        context.element.label.options.display = display;
+        return true; // redraw
+    };
     for (let i = 0; i < dueDates.length; i++) {
         let label = format(
             new Date(dueDates[i].date + "T00:00:00"),
@@ -619,20 +622,21 @@ function dueDateAnnotations(dueDates, labels, yScaleID) {
             yScaleID: yScaleID,
             xMin: label,
             xMax: label,
-            borderColor: "rgb(200, 78, 16)",
+            borderColor: "rgb(220, 53, 69)",
             borderWidth: 1,
             borderDash: [4, 4],
+            hitTolerance: 12,
             label: {
-                display: true,
+                display: false,
                 content: dueDates[i].text,
                 position: "end",
-                yAdjust: (count % 3) * 22,
-                backgroundColor: "rgba(200, 78, 16, 0.8)",
+                backgroundColor: "rgba(220, 53, 69, 0.9)",
                 font: { size: 11, weight: "normal" },
-                padding: 3,
+                padding: 4,
             },
+            enter: (context) => toggleLabel(context, true),
+            leave: (context) => toggleLabel(context, false),
         };
-        count++;
     }
     return annotations;
 }
