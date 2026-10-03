@@ -355,10 +355,20 @@ function drawAChart(URL, container, chartType, options, colorData) {
         console.log('Return because 0');
         return;
     }
-    window.axios.get(URL).then(function (response) {
+    // charts listed in dueDateUrls get a line on each due date. A failure there leaves the chart without them.
+    var dueDatesRequest = Promise.resolve([]);
+    if (typeof dueDateUrls === 'object' && dueDateUrls.hasOwnProperty(container)) {
+        dueDatesRequest = window.axios.get(dueDateUrls[container]).then(function (response) {
+            return response.data;
+        }).catch(function () {
+            return [];
+        });
+    }
+    Promise.all([window.axios.get(URL), dueDatesRequest]).then(function (responses) {
         //console.log('GET drawAChart('+URL+', '+container+')');
         containerObj.classList.remove('general-chart-error');
-        var data = response.data;
+        var data = responses[0].data;
+        var dueDates = responses[1];
         // if result is empty array, or the labels array is empty, show error.
         // console.log(URL);
         // console.log(data.length);
@@ -413,11 +423,11 @@ function drawAChart(URL, container, chartType, options, colorData) {
                 lineAtIndex: [],
                 annotation: {},
             };
+            var annotations = [];
             if (typeof drawVerticalLine !== 'undefined') {
                 if (drawVerticalLine !== '') {
                     // draw line using annotation plugin.
-                    chartOpts.options.annotation = {
-                        annotations: [{
+                    annotations.push({
                             type: 'line',
                             id: 'a-line-1',
                             mode: 'vertical',
@@ -436,9 +446,12 @@ function drawAChart(URL, container, chartType, options, colorData) {
                                 enabled: true,
                                 content: todayText
                             }
-                        }]
-                    };
+                        });
                 }
+            }
+            annotations = annotations.concat(dueDateAnnotations(dueDates, data.labels));
+            if (annotations.length > 0) {
+                chartOpts.options.annotation = {annotations: annotations};
             }
             allCharts[container] = new Chart(ctx, chartOpts);
         }
@@ -447,4 +460,48 @@ function drawAChart(URL, container, chartType, options, colorData) {
         // console.error('Add error because error with chart.', reason);
         document.getElementById(container).classList.add('general-chart-error');
     });
+}
+
+/**
+ * A dashed vertical line per due date, as made by DueDateController. Labels are staggered so that
+ * neighbouring ones don't overlap; due dates that aren't on the chart's x-axis are skipped.
+ *
+ * @param dueDates
+ * @param labels
+ * @returns {Array}
+ */
+function dueDateAnnotations(dueDates, labels) {
+    "use strict";
+    var color = 'rgb(200, 78, 16)';
+    var result = [];
+    for (var i = 0; i < dueDates.length; i++) {
+        if (-1 === labels.indexOf(dueDates[i].label)) {
+            continue;
+        }
+        result.push({
+            type: 'line',
+            id: 'due-date-' + i,
+            mode: 'vertical',
+            scaleID: 'x-axis-0',
+            value: dueDates[i].label,
+            borderColor: color,
+            borderWidth: 1,
+            borderDash: [4, 4],
+            label: {
+                backgroundColor: 'rgba(200, 78, 16, 0.8)',
+                fontFamily: "sans-serif",
+                fontSize: 11,
+                fontStyle: 'normal',
+                fontColor: '#fff',
+                xPadding: 3,
+                yPadding: 3,
+                cornerRadius: 3,
+                position: 'top',
+                yAdjust: (result.length % 3) * 22,
+                enabled: true,
+                content: dueDates[i].text
+            }
+        });
+    }
+    return result;
 }

@@ -217,6 +217,7 @@
         currencySymbol = "{{ $currency->symbol }}";
         var accountID = {{ $account->id }};
         var chartUrl = '{{ $chartUrl }}';
+        var dueDateUrls = {'overview-chart': '{{ route('chart.account.due-dates.account', [$account->id, $start->format('Y-m-d'), $end->format('Y-m-d')]) }}'};
         @if(!$showAll)
             showAll = false;
             // url's for charts:

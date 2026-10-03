@@ -60,9 +60,9 @@ let defaultChartOptions = {
     },
 };
 
-export function drawMultiCurrencyChart(type, url, holder, anonymous, drawTodayMarker, colorData) {
+export function drawMultiCurrencyChart(type, url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl) {
     if ("line" === type) {
-        drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData);
+        drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl);
         return;
     }
     if ("stacked-column" === type) {
@@ -299,11 +299,17 @@ function drawMultiCurrencyStackedColumnChart(url, holder, anonymous, colorData) 
         });
 }
 
-function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData) {
+function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl) {
     document.getElementById(holder).classList.remove("general-chart-error");
-    window.axios
-        .get(url)
-        .then((response) => {
+    // a failure to get the due dates leaves the chart without them.
+    let dueDatesRequest = dueDatesUrl
+        ? window.axios
+              .get(dueDatesUrl)
+              .then((response) => response.data)
+              .catch(() => [])
+        : Promise.resolve([]);
+    Promise.all([window.axios.get(url), dueDatesRequest])
+        .then(([response, dueDates]) => {
             // prep some chart variables first.
             let all = response.data;
             let axes = {};
@@ -432,6 +438,8 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
                 data = colorizeAllData(data);
             }
 
+            options.plugins.annotation = { annotations: dueDateAnnotations(dueDates, data.labels, firstScale) };
+
             // add a marker to the chart if defined.
             if (drawTodayMarker && "" !== drawTodayLabel) {
                 let locale = window.store.get("locale");
@@ -450,25 +458,21 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
                     xAdjust = today.length * -4;
                 }
                 // draw line using annotation plugin.
-                options.plugins.annotation = {
-                    annotations: {
-                        line1: {
-                            type: "line",
-                            xScaleID: "x",
-                            yScaleID: firstScale,
-                            xMin: markDate,
-                            xMax: markDate,
-                            display: true,
-                            borderColor: "rgb(255, 0, 0)",
-                            borderWidth: 1,
-                            label: {
-                                xAdjust: xAdjust,
-                                content: today,
-                                enabled: true,
-                                display: true,
-                                position: "center",
-                            },
-                        },
+                options.plugins.annotation.annotations.line1 = {
+                    type: "line",
+                    xScaleID: "x",
+                    yScaleID: firstScale,
+                    xMin: markDate,
+                    xMax: markDate,
+                    display: true,
+                    borderColor: "rgb(255, 0, 0)",
+                    borderWidth: 1,
+                    label: {
+                        xAdjust: xAdjust,
+                        content: today,
+                        enabled: true,
+                        display: true,
+                        position: "center",
                     },
                 };
             }
@@ -592,6 +596,45 @@ function colorizeAllData(data) {
         }
     }
     return data;
+}
+
+// a dashed vertical line per due date (see DueDateController). Labels are staggered so that neighbouring
+// ones don't overlap; due dates that aren't on the chart's x-axis are skipped.
+function dueDateAnnotations(dueDates, labels, yScaleID) {
+    let locale = window.store.get("locale");
+    let annotations = {};
+    let count = 0;
+    for (let i = 0; i < dueDates.length; i++) {
+        let label = format(
+            new Date(dueDates[i].date + "T00:00:00"),
+            i18next.t("config.month_and_day_fns", { lng: locale }),
+            locale,
+        );
+        if (!labels.includes(label)) {
+            continue;
+        }
+        annotations["dueDate" + i] = {
+            type: "line",
+            xScaleID: "x",
+            yScaleID: yScaleID,
+            xMin: label,
+            xMax: label,
+            borderColor: "rgb(200, 78, 16)",
+            borderWidth: 1,
+            borderDash: [4, 4],
+            label: {
+                display: true,
+                content: dueDates[i].text,
+                position: "end",
+                yAdjust: (count % 3) * 22,
+                backgroundColor: "rgba(200, 78, 16, 0.8)",
+                font: { size: 11, weight: "normal" },
+                padding: 3,
+            },
+        };
+        count++;
+    }
+    return annotations;
 }
 
 // https://stackoverflow.com/questions/43855166/how-to-tell-if-two-dates-are-in-the-same-day-or-in-the-same-hour

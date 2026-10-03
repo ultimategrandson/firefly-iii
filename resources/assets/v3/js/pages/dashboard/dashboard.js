@@ -50,6 +50,7 @@ let index = function () {
                     value,
                     true,
                     true,
+                    "chart/account/due-dates/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
                 );
 
                 drawMultiCurrencyChart(
