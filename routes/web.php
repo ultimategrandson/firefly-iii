@@ -440,6 +440,10 @@ Route::group(
             ->where(['start_date' => DATEFORMAT])
             ->where(['end_date' => DATEFORMAT])
         ;
+        Route::get('projection/{start_date}/{end_date}', ['uses' => 'ProjectionController@frontpage', 'as' => 'projection'])
+            ->where(['start_date' => DATEFORMAT])
+            ->where(['end_date' => DATEFORMAT])
+        ;
 
         Route::get('income-category/{account}/all/all', ['uses' => 'AccountController@incomeCategoryAll', 'as' => 'income-category-all']);
         Route::get('expense-category/{account}/all/all', ['uses' => 'AccountController@expenseCategoryAll', 'as' => 'expense-category-all']);
