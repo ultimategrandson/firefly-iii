@@ -125,7 +125,12 @@ let index = function () {
                     value,
                     true,
                     true,
-                    "chart/account/due-dates/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
+                    {
+                        dueDatesUrl:
+                            "chart/account/due-dates/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
+                        projectionUrl:
+                            "chart/account/projection/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
+                    },
                 );
 
                 drawMultiCurrencyChart(

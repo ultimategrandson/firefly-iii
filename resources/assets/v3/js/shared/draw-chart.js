@@ -60,9 +60,10 @@ let defaultChartOptions = {
     },
 };
 
-export function drawMultiCurrencyChart(type, url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl) {
+// extras (line charts only): dueDatesUrl draws a line per due date, projectionUrl adds a projected total.
+export function drawMultiCurrencyChart(type, url, holder, anonymous, drawTodayMarker, colorData, extras = {}) {
     if ("line" === type) {
-        drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl);
+        drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, extras);
         return;
     }
     if ("stacked-column" === type) {
@@ -299,17 +300,18 @@ function drawMultiCurrencyStackedColumnChart(url, holder, anonymous, colorData) 
         });
 }
 
-function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, dueDatesUrl) {
+function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, colorData, extras) {
     document.getElementById(holder).classList.remove("general-chart-error");
-    // a failure to get the due dates leaves the chart without them.
-    let dueDatesRequest = dueDatesUrl
-        ? window.axios
-              .get(dueDatesUrl)
-              .then((response) => response.data)
-              .catch(() => [])
-        : Promise.resolve([]);
-    Promise.all([window.axios.get(url), dueDatesRequest])
-        .then(([response, dueDates]) => {
+    // a failure to get the extras leaves the chart without them.
+    let extra = (extraUrl, fallback) =>
+        extraUrl
+            ? window.axios
+                  .get(extraUrl)
+                  .then((response) => response.data)
+                  .catch(() => fallback)
+            : Promise.resolve(fallback);
+    Promise.all([window.axios.get(url), extra(extras.dueDatesUrl, []), extra(extras.projectionUrl, null)])
+        .then(([response, dueDates, projection]) => {
             // prep some chart variables first.
             let all = response.data;
             let axes = {};
@@ -327,6 +329,7 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
             let drawTodayLabel = "";
             let drawTodayIndex = 0;
             let labelCount;
+            let dates = []; // yyyy-MM-dd of each label, for the projection.
 
             // loop all collected data.
             for (let i = 0; i < all.length; i++) {
@@ -354,6 +357,7 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
 
                                 // is the marker to be set on this date?
                                 let date = new Date(j);
+                                dates.push(format(date, "yyyy-MM-dd"));
                                 if (drawTodayMarker && isSameDay(date, today)) {
                                     drawTodayLabel = j;
                                     drawTodayIndex = labelCount;
@@ -437,6 +441,8 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
             if (colorData) {
                 data = colorizeAllData(data);
             }
+
+            addProjectedTotal(data, options, projection, dates, anonymous);
 
             options.plugins.annotation = { annotations: dueDateAnnotations(dueDates, data.labels, firstScale) };
 
@@ -596,6 +602,54 @@ function colorizeAllData(data) {
         }
     }
     return data;
+}
+
+// a line for the sum of the other lines, which from today on also counts the money that recurring
+// transactions, subscriptions and debts are expected to move (see ProjectionController). The projected
+// part is dashed, and its tooltip lists what is expected that day. Left out when the lines aren't all in
+// the projection's currency.
+function addProjectedTotal(data, options, projection, dates, anonymous) {
+    if (null === projection || 0 === data.datasets.length) {
+        return;
+    }
+    if (!data.datasets.every((dataset) => dataset.currency_code === projection.currency_code)) {
+        return;
+    }
+    let total = dates.map((date, index) => {
+        let sum = parseFloat(projection.entries[date] ?? 0);
+        for (let dataset of data.datasets) {
+            sum += parseFloat(dataset.data[index] ?? 0);
+        }
+        return Math.round(sum * 100) / 100;
+    });
+    // first point that is projected: today's, or the first after it.
+    let firstProjected = dates.findIndex((date) => date >= projection.today);
+    if (-1 === firstProjected) {
+        firstProjected = dates.length;
+    }
+    data.datasets.push({
+        label: projection.label,
+        currency_code: projection.currency_code,
+        data: total,
+        yAxisID: "y" + projection.currency_code,
+        borderColor: "rgb(108, 117, 125)",
+        backgroundColor: "rgb(108, 117, 125)",
+        borderWidth: 3,
+        pointRadius: 0,
+        pointHitRadius: 6,
+        pointHoverRadius: 4,
+        segment: {
+            borderDash: (context) => (context.p1DataIndex > firstProjected ? [6, 4] : undefined),
+        },
+        projection: true,
+    });
+    options.plugins.tooltip.callbacks.afterLabel = function (tooltipItem) {
+        if (!tooltipItem.dataset.projection || anonymous) {
+            return "";
+        }
+        let events = projection.events[dates[tooltipItem.dataIndex]] ?? [];
+        return events.map((event) => "  " + event.description + ": " + event.amount);
+    };
 }
 
 // a dashed red vertical line per due date (see DueDateController), labelled when the mouse is over it.

@@ -51,6 +51,8 @@ return [
     'view_documentation'                                  => 'View documentation',
     'everything'                                          => 'Everything',
     'today'                                               => 'today',
+    'projected_total'                                     => 'Total (projected)',
+    'projected_overdue'                                   => ':name (overdue)',
     'due_date_line'                                       => 'Due: :description (:amount)',
     'due_date_line_no_amount'                             => 'Due: :description',
     'due_date_line_multiple'                              => ':count due',
