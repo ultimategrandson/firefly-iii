@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, and due dates drawn on the account charts"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, and a projected total on the dashboard accounts chart"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -55,6 +55,10 @@ COPY --chown=www-data:www-data app/Http/Controllers/Chart/DueDateController.php 
 COPY --chown=www-data:www-data routes/web.php /var/www/html/routes/web.php
 COPY --chown=www-data:www-data resources/lang/en_US/firefly.php /var/www/html/resources/lang/en_US/firefly.php
 COPY --chown=www-data:www-data public/v1/js/ff/charts.js /var/www/html/public/v1/js/ff/charts.js
+
+# The dashboard accounts chart has a projected total line. The routes and translations are copied
+# above, and the chart half is in the rebuilt public/build.
+COPY --chown=www-data:www-data app/Http/Controllers/Chart/ProjectionController.php /var/www/html/app/Http/Controllers/Chart/ProjectionController.php
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
