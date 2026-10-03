@@ -432,6 +432,14 @@ Route::group(
             ->where(['start_date' => DATEFORMAT])
             ->where(['end_date' => DATEFORMAT])
         ;
+        Route::get('due-dates/{start_date}/{end_date}', ['uses' => 'DueDateController@frontpage', 'as' => 'due-dates'])
+            ->where(['start_date' => DATEFORMAT])
+            ->where(['end_date' => DATEFORMAT])
+        ;
+        Route::get('due-dates/{account}/{start_date}/{end_date}', ['uses' => 'DueDateController@account', 'as' => 'due-dates.account'])
+            ->where(['start_date' => DATEFORMAT])
+            ->where(['end_date' => DATEFORMAT])
+        ;
 
         Route::get('income-category/{account}/all/all', ['uses' => 'AccountController@incomeCategoryAll', 'as' => 'income-category-all']);
         Route::get('expense-category/{account}/all/all', ['uses' => 'AccountController@expenseCategoryAll', 'as' => 'expense-category-all']);

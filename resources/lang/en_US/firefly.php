@@ -51,6 +51,8 @@ return [
     'view_documentation'                                  => 'View documentation',
     'everything'                                          => 'Everything',
     'today'                                               => 'today',
+    'due_date_line'                                       => 'Due: :description (:amount)',
+    'due_date_line_multiple'                              => ':count due',
     'organization'                                        => 'Organization',
     'customRange'                                         => 'Custom range',
     'date_range'                                          => 'Date range',
