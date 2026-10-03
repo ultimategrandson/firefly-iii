@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, and balances shown from the user's side"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, and subscription amounts on one line"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -44,6 +44,9 @@ COPY --chown=www-data:www-data resources/views/components/lists/groups-large.bla
 # Balances are shown from the user's side: revenue as a gain, a debt owed as negative. The list's
 # half is in the rebuilt public/build above; the running balance component is copied above too.
 COPY --chown=www-data:www-data resources/views/accounts/show.blade.php /var/www/html/resources/views/accounts/show.blade.php
+
+# Subscription amounts stay on one line instead of wrapping over four.
+COPY --chown=www-data:www-data resources/views/components/lists/subscriptions.blade.php /var/www/html/resources/views/components/lists/subscriptions.blade.php
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
