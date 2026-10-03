@@ -52,6 +52,7 @@ return [
     'everything'                                          => 'Everything',
     'today'                                               => 'today',
     'due_date_line'                                       => 'Due: :description (:amount)',
+    'due_date_line_no_amount'                             => 'Due: :description',
     'due_date_line_multiple'                              => ':count due',
     'organization'                                        => 'Organization',
     'customRange'                                         => 'Custom range',
