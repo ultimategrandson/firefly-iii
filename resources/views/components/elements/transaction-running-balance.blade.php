@@ -47,6 +47,12 @@
         default       => null,
     };
 
+    // A revenue account's balance runs negative as money is drawn from it, but that money was
+    // earned, so it is shown as a gain.
+    if (null !== $balance && \FireflyIII\Enums\AccountTypeEnum::REVENUE->value === $account?->accountType?->type) {
+        $balance = bcmul((string) $balance, '-1');
+    }
+
     $shown = $inForeign
         ? ['id' => $foreign['id'], 'symbol' => $foreign['symbol'], 'decimal_places' => $foreign['decimal_places']]
         : $currency;

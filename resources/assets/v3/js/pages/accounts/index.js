@@ -164,6 +164,25 @@ let index = function () {
             }
             return account;
         },
+        fromUsersSide(account, code, prefix) {
+            // Show each figure from the user's side. A revenue account's balance runs negative
+            // as money is drawn from it, but that money was earned, so it is shown as a gain.
+            // A debt the user owes is money they are short of, so it is shown as negative until
+            // it is paid off; a debt owed to them stays positive. (0 - x, not -x, so a zero is never "-0".)
+            let keys = [];
+            if ("revenue" === this.objectType) {
+                keys = ["balance_difference", "current_balance"];
+            }
+            if ("liabilities" === this.objectType && "credit" !== account.attributes.liability_direction) {
+                keys = ["debt_amount"];
+            }
+            for (let i = 0; i < keys.length; i++) {
+                let key = prefix + keys[i];
+                account.attributes[key + "_float"] = 0 - account.attributes[key + "_float"];
+                account.attributes[key + "_formatted"] = formatMoney(account.attributes[key + "_float"], code);
+            }
+            return account;
+        },
         downloadObjects() {
             this.sortableTable.loadingNewSort = true;
             let sort =
@@ -202,6 +221,8 @@ let index = function () {
                             // add formatted amount property.
                             current = this.createParsedAndFloatingAmounts(current, cc, "");
                             current = this.createParsedAndFloatingAmounts(current, pcc, "pc_");
+                            current = this.fromUsersSide(current, cc, "");
+                            current = this.fromUsersSide(current, pcc, "pc_");
                             //console.log(current);
 
                             if (!this.convertToPrimary) {

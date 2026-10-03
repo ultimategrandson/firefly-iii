@@ -1,5 +1,16 @@
 @extends('layout.v3.session')
 @section('content')
+    @php
+        // A revenue account's balance runs negative as money is drawn from it, but that money was
+        // earned, so it is shown as a gain.
+        if (\FireflyIII\Enums\AccountTypeEnum::REVENUE->value === $account->accountType->type) {
+            foreach ($balances as $key => $value) {
+                if (is_numeric($value)) {
+                    $balances[$key] = bcmul((string) $value, '-1');
+                }
+            }
+        }
+    @endphp
 
     <div class="row">
         <div class="@if(0 === $attachments->count())col-lg-12 col-md-12 col-sm-12 col-xs-12@else col-lg-8 col-md-6 col-sm-12 col-xs-12 @endif ">
