@@ -114,8 +114,14 @@
                                 </template>
                                 <template x-if="'liabilities' === objectType">
                                     <td>
-                                        <span x-text="account.liability_interest"></span>%
-                                        (<span x-text="account.liability_interest_period"></span>)
+                                        <template x-if="null !== account.liability_interest">
+                                            <span>
+                                                <span x-text="account.liability_interest"></span>%
+                                                <template x-if="null !== account.liability_interest_period">
+                                                    <span>(<span x-text="account.liability_interest_period"></span>)</span>
+                                                </template>
+                                            </span>
+                                        </template>
                                     </td>
                                 </template>
                                 <td>

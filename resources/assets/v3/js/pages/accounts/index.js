@@ -287,10 +287,11 @@ let index = function () {
                                 liability_direction: i18next.t(
                                     "firefly.liability_direction_" + current.attributes.liability_direction + "_short",
                                 ),
-                                liability_interest: current.attributes.interest,
-                                liability_interest_period: i18next
-                                    .t("firefly.interest_calc_" + current.attributes.interest_period)
-                                    .toLowerCase(),
+                                // a liability without an interest rate (a bill, say) leaves the column blank:
+                                liability_interest: parseFloat(current.attributes.interest) ? current.attributes.interest : null,
+                                liability_interest_period: current.attributes.interest_period
+                                    ? i18next.t("firefly.interest_calc_" + current.attributes.interest_period).toLowerCase()
+                                    : null,
                             };
                             this.accounts.push(account);
                         }
