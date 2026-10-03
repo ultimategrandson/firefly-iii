@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, and subscription amounts on one line and without repeats"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, and due dates drawn on the account charts"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -48,6 +48,13 @@ COPY --chown=www-data:www-data resources/views/accounts/show.blade.php /var/www/
 # Subscription amounts stay on one line, a fixed amount is shown without "~" or a repeated
 # primary-currency figure, and sums name their currency (by code) only when there are several.
 COPY --chown=www-data:www-data resources/views/components/lists/subscriptions.blade.php /var/www/html/resources/views/components/lists/subscriptions.blade.php
+
+# Transaction due dates are drawn as lines on the dashboard and account charts. The dashboard half is
+# in the rebuilt public/build above, and the account page view is copied above too.
+COPY --chown=www-data:www-data app/Http/Controllers/Chart/DueDateController.php /var/www/html/app/Http/Controllers/Chart/DueDateController.php
+COPY --chown=www-data:www-data routes/web.php /var/www/html/routes/web.php
+COPY --chown=www-data:www-data resources/lang/en_US/firefly.php /var/www/html/resources/lang/en_US/firefly.php
+COPY --chown=www-data:www-data public/v1/js/ff/charts.js /var/www/html/public/v1/js/ff/charts.js
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
