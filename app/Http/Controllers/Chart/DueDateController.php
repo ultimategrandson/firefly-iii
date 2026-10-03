@@ -24,14 +24,12 @@ declare(strict_types=1);
 namespace FireflyIII\Http\Controllers\Chart;
 
 use Carbon\Carbon;
-use FireflyIII\Enums\AccountTypeEnum;
+use FireflyIII\Enums\TransactionTypeEnum;
 use FireflyIII\Helpers\Collector\GroupCollectorInterface;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Models\Account;
-use FireflyIII\Repositories\Account\AccountRepositoryInterface;
 use FireflyIII\Support\Facades\Amount;
 use FireflyIII\Support\Facades\Navigation;
-use FireflyIII\Support\Facades\Preferences;
 use FireflyIII\Support\Facades\Steam;
 use FireflyIII\Support\Http\Controllers\DateCalculation;
 use Illuminate\Http\JsonResponse;
@@ -44,29 +42,13 @@ class DueDateController extends Controller
 {
     use DateCalculation;
 
-    private AccountRepositoryInterface $accountRepository;
-
-    public function __construct()
-    {
-        parent::__construct();
-
-        $this->middleware(function ($request, $next) {
-            $this->accountRepository = app(AccountRepositoryInterface::class);
-
-            return $next($request);
-        });
-    }
-
     /**
-     * Due dates on the accounts shown on the dashboard.
+     * Due dates on every account. Bills are often charged to a liability rather than to the asset
+     * accounts on the dashboard chart, and still fall due.
      */
     public function frontpage(Carbon $start, Carbon $end): JsonResponse
     {
-        $defaultSet = $this->accountRepository->getAccountsByType([AccountTypeEnum::DEFAULT->value, AccountTypeEnum::ASSET->value])->pluck('id')->toArray();
-        $frontpage  = Preferences::get('frontpageAccounts', $defaultSet);
-        $ids        = is_array($frontpage->data) && count($frontpage->data) > 0 ? $frontpage->data : $defaultSet;
-
-        return response()->json($this->dueDates($this->accountRepository->getAccountsById($ids), $start, $end, false));
+        return response()->json($this->dueDates(null, $start, $end, false));
     }
 
     /**
@@ -80,49 +62,85 @@ class DueDateController extends Controller
     /**
      * One entry per day with something due, or with $bucketed, per point of the chart.account.period
      * chart (a week or longer for long periods). "label" is the x-axis label of that day or point.
+     * Transactions on a liability are one item per liability, named after it, so a bill split into
+     * charges and credits shows as what it adds to the debt: withdrawals less deposits. Others are one
+     * item per transaction group, named by its title. Without $accounts, all accounts count.
      */
-    private function dueDates(Collection $accounts, Carbon $start, Carbon $end, bool $bucketed): array
+    private function dueDates(?Collection $accounts, Carbon $start, Carbon $end, bool $bucketed): array
     {
-        $start    = $start->copy()->startOfDay();
-        $end      = $end->copy()->endOfDay();
-        if (0 === $accounts->count()) {
-            return [];
-        }
+        $start     = $start->copy()->startOfDay();
+        $end       = $end->copy()->endOfDay();
 
         /** @var GroupCollectorInterface $collector */
         $collector = app(GroupCollectorInterface::class);
-        $journals  = $collector->setAccounts($accounts)->setMetaDateRange($start, $end, 'due_date')->getExtractedJournals();
+        if ($accounts instanceof Collection) {
+            $collector->setAccounts($accounts);
+        }
+        $journals  = $collector->setMetaDateRange($start, $end, 'due_date')->withAccountInformation()->getExtractedJournals();
+        $liability = config('firefly.valid_liabilities');
 
-        $buckets  = $bucketed ? $this->bucketEnds($start, $end) : [];
-        $format   = (string) trans('config.month_and_day_js', [], Steam::getLocale());
-        $days     = [];
+        $buckets   = $bucketed ? $this->bucketEnds($start, $end) : [];
+        $format    = (string) trans('config.month_and_day_js', [], Steam::getLocale());
+        $days      = [];
         foreach ($journals as $journal) {
             /** @var null|Carbon $due */
-            $due = $journal['due_date'] ?? null;
+            $due     = $journal['due_date'] ?? null;
             if (!$due instanceof Carbon) {
                 continue;
             }
-            $bucket = $this->bucketFor($buckets, $due);
-            $key    = $bucket->format('Y-m-d');
+            $bucket  = $this->bucketFor($buckets, $due);
+            $key     = $bucket->format('Y-m-d');
             if (!array_key_exists($key, $days)) {
-                $days[$key] = [
-                    'date'  => $key,
-                    'label' => $bucket->isoFormat($format),
-                    'items' => [],
+                $days[$key] = ['date' => $key, 'label' => $bucket->isoFormat($format), 'items' => []];
+            }
+            // the side of the journal that isn't the expense or revenue account.
+            $own     = TransactionTypeEnum::WITHDRAWAL->value === $journal['transaction_type_type'] ? 'source' : 'destination';
+            $itemKey = sprintf('group-%d', $journal['transaction_group_id']);
+            $name    = '' !== (string) $journal['transaction_group_title'] ? $journal['transaction_group_title'] : $journal['description'];
+            $url     = route('transactions.show', [$journal['transaction_group_id']]);
+            if (in_array($journal[$own.'_account_type'], $liability, true)) {
+                $itemKey = sprintf('account-%d', $journal[$own.'_account_id']);
+                $name    = $journal[$own.'_account_name'];
+                $url     = route('accounts.show', [$journal[$own.'_account_id']]);
+            }
+            if (!array_key_exists($itemKey, $days[$key]['items'])) {
+                $days[$key]['items'][$itemKey] = [
+                    'description'    => $name,
+                    'amount'         => '0',
+                    'currency_id'    => (int) $journal['currency_id'],
+                    'currency'       => [$journal['currency_symbol'], (int) $journal['currency_decimal_places']],
+                    'mixed_currency' => false,
+                    'url'            => $url,
                 ];
             }
-            $days[$key]['items'][] = [
-                'description' => $journal['description'],
-                'amount'      => Amount::formatFlat($journal['currency_symbol'], (int) $journal['currency_decimal_places'], Steam::positive($journal['amount']), false),
-                'url'         => route('transactions.show', [$journal['transaction_group_id']]),
-            ];
+            $item    = &$days[$key]['items'][$itemKey];
+            $amount  = Steam::positive($journal['amount']);
+            if ((int) $journal['currency_id'] !== $item['currency_id']) {
+                $item['mixed_currency'] = true;
+            }
+            $item['amount'] = TransactionTypeEnum::DEPOSIT->value === $journal['transaction_type_type'] ? bcsub($item['amount'], $amount) : bcadd($item['amount'], $amount);
+            unset($item);
         }
         ksort($days);
 
         foreach ($days as $key => $day) {
-            $days[$key]['text'] = 1 === count($day['items'])
-                ? (string) trans('firefly.due_date_line', ['description' => $day['items'][0]['description'], 'amount' => $day['items'][0]['amount']])
-                : (string) trans('firefly.due_date_line_multiple', ['count' => count($day['items'])]);
+            $items = [];
+            foreach ($day['items'] as $item) {
+                $items[] = [
+                    'description' => $item['description'],
+                    'amount'      => $item['mixed_currency'] ? null : Amount::formatFlat($item['currency'][0], $item['currency'][1], $item['amount'], false),
+                    'url'         => $item['url'],
+                ];
+            }
+            $days[$key]['items'] = $items;
+            if (1 === count($items)) {
+                $days[$key]['text'] = null === $items[0]['amount']
+                    ? (string) trans('firefly.due_date_line_no_amount', ['description' => $items[0]['description']])
+                    : (string) trans('firefly.due_date_line', ['description' => $items[0]['description'], 'amount' => $items[0]['amount']]);
+            }
+            if (1 !== count($items)) {
+                $days[$key]['text'] = (string) trans('firefly.due_date_line_multiple', ['count' => count($items)]);
+            }
         }
 
         return array_values($days);
