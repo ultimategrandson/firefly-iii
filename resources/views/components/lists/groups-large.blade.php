@@ -2,14 +2,14 @@
     <thead>
     <tr>
         @if($showCategory && $showBudget)
-            <td colspan="9">
+            <td colspan="10">
                 @if(method_exists($groups, 'links'))
                     {{ $groups->links('pagination.bootstrap-4') }}
                 @endif
             </td>
         @endif
         @if($showCategory XOR $showBudget)
-            <td colspan="8">
+            <td colspan="9">
                 @if(method_exists($groups, 'links'))
                     {{ $groups->links('pagination.bootstrap-4') }}
                 @endif
@@ -55,6 +55,9 @@
         @if($showBudget)
             <th class="d-xs-none">{{ trans('list.budget') }}</th>
         @endif
+        @if($showSubscription)
+            <th class="d-xs-none">{{ trans('list.bill') }}</th>
+        @endif
         <th class="d-xs-none">&nbsp;</th><!-- actions -->
         <th class="d-xs-none">&nbsp;</th><!-- checkbox -->
     </tr>
@@ -88,10 +91,10 @@
             </td>
             <!-- column to span accounts + extra fields -->
             @if($showCategory && $showBudget)
-                <td colspan="6" class="top-light-border">&nbsp;</td>
+                <td colspan="7" class="top-light-border">&nbsp;</td>
             @endif
             @if($showCategory XOR $showBudget)
-                <td colspan="5" class="top-light-border">&nbsp;</td>
+                <td colspan="6" class="top-light-border">&nbsp;</td>
             @endif
             @if(!$showCategory && !$showBudget)
                 <td colspan="4" class="top-light-border">&nbsp;</td>
@@ -194,6 +197,14 @@
                 @endif
             </td>
         @endif
+        @if($showSubscription)
+            <td class="d-xs-none {{ $className }}">
+                @if(array_key_exists($transaction['transaction_journal_id'], $subscriptions))
+                    @php $subscription = $subscriptions[$transaction['transaction_journal_id']]; @endphp
+                    <a href="{{ route('subscriptions.show', [$subscription['id']]) }}" title="{{ $subscription['name'] }}">{{ $subscription['name'] }}</a>
+                @endif
+            </td>
+        @endif
 
         @if(1 === $group['count'])
         <td class="d-xs-none {{ $className }} text-end">
@@ -235,14 +246,14 @@
     <tfoot>
     <tr>
         @if($showCategory && $showBudget)
-            <td colspan="9">
+            <td colspan="10">
                 @if(method_exists($groups, 'links'))
                     {{ $groups->links('pagination.bootstrap-4') }}
                 @endif
             </td>
         @endif
         @if($showCategory XOR $showBudget)
-            <td colspan="8">
+            <td colspan="9">
                 @if(method_exists($groups, 'links'))
                     {{ $groups->links('pagination.bootstrap-4') }}
                 @endif
