@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, and a projected total on the dashboard accounts chart"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, a projected total on the dashboard accounts chart, a page to review what was created after a cut-off, bulk changes to source and destination accounts, and pruning of empty new expense and revenue accounts"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -59,6 +59,16 @@ COPY --chown=www-data:www-data public/v1/js/ff/charts.js /var/www/html/public/v1
 # The dashboard accounts chart has a projected total line. The routes and translations are copied
 # above, and the chart half is in the rebuilt public/build.
 COPY --chown=www-data:www-data app/Http/Controllers/Chart/ProjectionController.php /var/www/html/app/Http/Controllers/Chart/ProjectionController.php
+
+# A review page lists the transactions and expense and revenue accounts created after a cut-off, and
+# deletes the new accounts left empty. Bulk edit can change source and destination accounts; its page
+# script is in the rebuilt public/build, and the routes and translations are copied above.
+COPY --chown=www-data:www-data app/Http/Controllers/Transaction/ReviewController.php /var/www/html/app/Http/Controllers/Transaction/ReviewController.php
+COPY --chown=www-data:www-data app/Http/Controllers/Transaction/BulkController.php /var/www/html/app/Http/Controllers/Transaction/BulkController.php
+COPY --chown=www-data:www-data resources/views/transactions/review.blade.php /var/www/html/resources/views/transactions/review.blade.php
+COPY --chown=www-data:www-data resources/views/transactions/bulk/edit.blade.php /var/www/html/resources/views/transactions/bulk/edit.blade.php
+COPY --chown=www-data:www-data resources/views/components/layout/sidebar.blade.php /var/www/html/resources/views/components/layout/sidebar.blade.php
+COPY --chown=www-data:www-data routes/breadcrumbs.php /var/www/html/routes/breadcrumbs.php
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
