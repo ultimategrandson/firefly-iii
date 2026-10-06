@@ -94,6 +94,12 @@
                     <p>{{ __('firefly.all_transactions') }}</p>
                 </a>
             </li>
+            <li class="nav-item sub-nav-item">
+                <a href="{{ route('transactions.review.index') }}" class="nav-link {{ menu_item_active_partial('transactions.review.') }}">
+                    <em class="nav-icon bi bi-check2-square"></em>
+                    <p>{{ __('firefly.review_new') }}</p>
+                </a>
+            </li>
         </ul>
     </li>
     <li class="nav-item {{ menu_open_partial('rules.') }} {{ menu_open_partial('rule-groups.') }} {{ menu_open_partial('webhooks.') }}  {{ menu_open_partial('recurring.') }}">
