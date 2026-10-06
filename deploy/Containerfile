@@ -13,7 +13,7 @@ FROM ${BASE}
 
 LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://github.com/ultimategrandson/firefly-iii" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, a projected total on the dashboard accounts chart, a page to review what was created after a cut-off, bulk changes to source and destination accounts, and pruning of empty new expense and revenue accounts"
+      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, a projected total on the dashboard accounts chart, a page to review what was created after a cut-off, bulk changes to source and destination accounts, pruning of empty new expense and revenue accounts, and a subscription column on transaction lists"
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
@@ -69,6 +69,9 @@ COPY --chown=www-data:www-data resources/views/transactions/review.blade.php /va
 COPY --chown=www-data:www-data resources/views/transactions/bulk/edit.blade.php /var/www/html/resources/views/transactions/bulk/edit.blade.php
 COPY --chown=www-data:www-data resources/views/components/layout/sidebar.blade.php /var/www/html/resources/views/components/layout/sidebar.blade.php
 COPY --chown=www-data:www-data routes/breadcrumbs.php /var/www/html/routes/breadcrumbs.php
+
+# Transaction lists that show a category or budget also show the subscription. The list view is copied above.
+COPY --chown=www-data:www-data app/View/Components/Lists/GroupsLarge.php /var/www/html/app/View/Components/Lists/GroupsLarge.php
 
 # Static v1 assets are served immutable for a year and versioned by build_time, so a patched file
 # would never reach a browser that has the old one. Stamp each build with its own time.
