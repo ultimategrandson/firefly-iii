@@ -23,6 +23,8 @@
                                         <th>{{ trans('list.description') }}</th>
                                         <th>{{ trans('list.amount') }}</th>
                                         <th>{{ trans('list.date') }}</th>
+                                        <th>{{ trans('list.source_account') }}</th>
+                                        <th>{{ trans('list.destination_account') }}</th>
                                         <th>{{ trans('list.category') }}</th>
                                         <th>{{ trans('list.budget') }}</th>
                                         <th>{{ trans('list.tags') }}</th>
@@ -59,6 +61,8 @@
 
                                             </td>
                                             <td>{{ $journal['date']->isoFormat($monthAndDayFormat) }}</td>
+                                            <td><a href="{{ route('accounts.show', [$journal['source_account_id']]) }}">{{ $journal['source_account_name'] }}</a></td>
+                                            <td><a href="{{ route('accounts.show', [$journal['destination_account_id']]) }}">{{ $journal['destination_account_name'] }}</a></td>
                                             <td>
                                                 @if($journal['category_id'] != null)
                                                     <a href="{{ route('categories.show', [$journal['category_id']]) }}" title="{{ $journal['category_name'] }}">{{ $journal['category_name'] }}</a>
@@ -107,6 +111,37 @@
                                                 </label>
                                             </div>
                                         </td>
+                                    </tr>
+                                    <tr>
+                                        <th>{{ trans('list.source_account') }}</th>
+                                        <td>
+                                            <input @change="detectSourceChange" class="form-control ac-source" placeholder="" name="source_name" autocomplete="off" type="text" value="" spellcheck="false">
+                                        </td>
+                                        <td>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input name="ignore_source_account" type="checkbox" value="1" checked>
+                                                    {{ __('firefly.no_bulk_source_account') }}
+                                                </label>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <th>{{ trans('list.destination_account') }}</th>
+                                        <td>
+                                            <input @change="detectDestinationChange" class="form-control ac-dest" placeholder="" name="destination_name" autocomplete="off" type="text" value="" spellcheck="false">
+                                        </td>
+                                        <td>
+                                            <div class="checkbox">
+                                                <label>
+                                                    <input name="ignore_destination_account" type="checkbox" value="1" checked>
+                                                    {{ __('firefly.no_bulk_destination_account') }}
+                                                </label>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td colspan="3" class="text-muted small">{{ __('firefly.bulk_accounts_explain') }}</td>
                                     </tr>
                                     <tr>
                                         <th>{{ trans('list.budget') }}</th>

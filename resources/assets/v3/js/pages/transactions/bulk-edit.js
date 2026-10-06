@@ -36,6 +36,16 @@ let edit = function () {
                 document.querySelector('input[name="ignore_category"]').checked = false;
             }
         },
+        detectSourceChange(e) {
+            if ("" !== e.target.value) {
+                document.querySelector('input[name="ignore_source_account"]').checked = false;
+            }
+        },
+        detectDestinationChange(e) {
+            if ("" !== e.target.value) {
+                document.querySelector('input[name="ignore_destination_account"]').checked = false;
+            }
+        },
         detectBudgetChange(e) {
             if (0 !== parseInt(e.target.value)) {
                 // tags_action_do_nothing
@@ -61,6 +71,33 @@ let edit = function () {
                 serverUrl: "/api/v1/autocomplete/categories",
                 valueField: "name",
                 labelField: "name",
+            });
+
+            // accounts are matched by name for each transaction's type, so offer every type a side can have.
+            const renderAccount = function (item) {
+                return item.name + '<br><small class="text-muted">' + i18next.t("firefly.account_type_" + item.type) + "</small>";
+            };
+            addAutocomplete({
+                selector: "input.ac-source",
+                serverUrl: "/api/v1/autocomplete/accounts",
+                account_types: ["Asset account", "Loan", "Debt", "Mortgage", "Revenue account"],
+                onRenderItem: renderAccount,
+                valueField: "name",
+                labelField: "name",
+                onSelectItem: () => {
+                    document.querySelector('input[name="ignore_source_account"]').checked = false;
+                },
+            });
+            addAutocomplete({
+                selector: "input.ac-dest",
+                serverUrl: "/api/v1/autocomplete/accounts",
+                account_types: ["Expense account", "Loan", "Debt", "Mortgage", "Asset account"],
+                onRenderItem: renderAccount,
+                valueField: "name",
+                labelField: "name",
+                onSelectItem: () => {
+                    document.querySelector('input[name="ignore_destination_account"]').checked = false;
+                },
             });
 
             Tags.init("select.ac-tags", {

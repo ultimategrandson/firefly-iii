@@ -33,6 +33,7 @@ use FireflyIII\Http\Requests\BulkEditJournalRequest;
 use FireflyIII\Models\TransactionJournal;
 use FireflyIII\Repositories\Budget\BudgetRepositoryInterface;
 use FireflyIII\Repositories\Journal\JournalRepositoryInterface;
+use FireflyIII\Services\Internal\Update\JournalUpdateService;
 use FireflyIII\Support\Facades\Preferences;
 use Illuminate\Contracts\View\Factory;
 use Illuminate\Http\RedirectResponse;
@@ -96,6 +97,10 @@ final class BulkController extends Controller
         $ignoreCategory = 1 === (int) $request->input('ignore_category');
         $ignoreBudget   = 1 === (int) $request->input('ignore_budget');
         $tagsAction     = $request->input('tags_action');
+        $ignoreSource   = 1 === (int) $request->input('ignore_source_account');
+        $ignoreDest     = 1 === (int) $request->input('ignore_destination_account');
+        $sourceName     = $request->convertString('source_name');
+        $destName       = $request->convertString('destination_name');
         $collection     = new Collection();
         $count          = 0;
         $tags           = null === $request->input('tags') ? [] : $request->input('tags');
@@ -107,7 +112,8 @@ final class BulkController extends Controller
                 $resultA = $this->updateJournalBudget($journal, $ignoreBudget, $request->integer('budget_id'));
                 $resultB = $this->updateJournalTags($journal, $tagsAction, $tags);
                 $resultC = $this->updateJournalCategory($journal, $ignoreCategory, $request->convertString('category'));
-                if ($resultA || $resultB || $resultC) {
+                $resultD = $this->updateJournalAccounts($journal, $ignoreSource ? '' : $sourceName, $ignoreDest ? '' : $destName);
+                if ($resultA || $resultB || $resultC || $resultD) {
                     ++$count;
                     $collection->push($journal);
                 }
@@ -130,6 +136,41 @@ final class BulkController extends Controller
 
         // redirect to previous URL:
         return redirect($this->getPreviousUrl('transactions.bulk-edit.url'));
+    }
+
+    /**
+     * Moves the journal to the named source and/or destination account (an empty name leaves that side alone), finding
+     * the account by name for the journal's type, so an unknown name makes a new expense or revenue account. A journal
+     * the account doesn't fit is left as it was, as are reconciled journals, whose accounts can't be changed.
+     */
+    private function updateJournalAccounts(TransactionJournal $journal, string $sourceName, string $destName): bool
+    {
+        $data = [];
+        if ('' !== $sourceName) {
+            $data['source_name'] = $sourceName;
+        }
+        if ('' !== $destName) {
+            $data['destination_name'] = $destName;
+        }
+        if (0 === count($data)) {
+            return false;
+        }
+        if ($journal->transactions()->where('reconciled', true)->exists()) {
+            Log::debug(sprintf('Journal #%d is reconciled, will not change its accounts.', $journal->id));
+
+            return false;
+        }
+        $before  = $journal->transactions()->orderBy('id')->pluck('account_id')->all();
+
+        /** @var JournalUpdateService $service */
+        $service = app(JournalUpdateService::class);
+        $service->setTransactionJournal($journal);
+        $service->setData($data);
+        $service->update();
+        $after   = $journal->transactions()->orderBy('id')->pluck('account_id')->all();
+        Log::debug(sprintf('Bulk changed the accounts of journal #%d from %s to %s', $journal->id, implode(',', $before), implode(',', $after)));
+
+        return $before !== $after;
     }
 
     private function updateJournalBudget(TransactionJournal $journal, bool $ignoreUpdate, int $budgetId): bool
