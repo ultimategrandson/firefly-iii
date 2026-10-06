@@ -21,8 +21,9 @@
 import formatMoney from "../../../util/format-money.js";
 
 export function parseTotalAmount() {
+    const fallback = this.formData.amountCurrency?.code ?? "EUR";
     if (this.entries.length === 0) {
-        return formatMoney(this.groupProperties.totalAmount, "EUR");
+        return formatMoney(this.groupProperties.totalAmount, fallback);
     }
-    return formatMoney(this.groupProperties.totalAmount, this.entries[0].currency_code ?? "EUR");
+    return formatMoney(this.groupProperties.totalAmount, this.entries[0].currency_code || fallback);
 }

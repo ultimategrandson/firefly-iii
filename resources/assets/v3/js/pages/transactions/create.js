@@ -300,6 +300,12 @@ let create = function () {
             loadCurrencies().then((data) => {
                 this.formStates.loadingCurrencies = false;
                 this.formData.amountCurrency = data.primaryCurrency;
+                // splits start out in EUR; until the accounts decide the currency, use the primary one.
+                for (let i in this.entries) {
+                    if (Object.hasOwn(this.entries, i) && data.primaryCurrency.code) {
+                        this.entries[i].currency_code = data.primaryCurrency.code;
+                    }
+                }
                 this.formData.enabledCurrencies = data.enabledCurrencies;
                 this.formData.primaryCurrencies = data.primaryCurrencies;
                 this.formData.foreignCurrencies = data.foreignCurrencies;
