@@ -1271,6 +1271,14 @@ Breadcrumbs::for(
 
 // BULK EDIT
 Breadcrumbs::for(
+    'transactions.review.index',
+    static function (Generator $breadcrumbs): void {
+        $breadcrumbs->parent('home');
+        $breadcrumbs->push(trans('firefly.review_new'), route('transactions.review.index'));
+    }
+);
+
+Breadcrumbs::for(
     'transactions.bulk.edit',
     static function (Generator $breadcrumbs, array $journals): void {
         if (0 !== count($journals)) {

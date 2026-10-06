@@ -1370,6 +1370,16 @@ Route::group(
     }
 );
 
+// Review what was created after a cut-off, such as a batch of imported transactions.
+Route::group(
+    ['middleware' => 'user-full-auth', 'namespace' => 'FireflyIII\Http\Controllers\Transaction', 'prefix' => 'transactions/review', 'as' => 'transactions.review.'],
+    static function (): void {
+        Route::get('', ['uses' => 'ReviewController@index', 'as' => 'index']);
+        Route::post('mark', ['uses' => 'ReviewController@markReviewed', 'as' => 'mark']);
+        Route::post('prune', ['uses' => 'ReviewController@prune', 'as' => 'prune']);
+    }
+);
+
 // Transaction Convert Controller.
 Route::group(
     [
