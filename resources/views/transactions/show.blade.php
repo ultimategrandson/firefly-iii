@@ -178,6 +178,22 @@
                                 @endforeach
                             </td>
                         </tr>
+                        @if(null !== $mailAddress)
+                            <tr>
+                                <td>{{ __('firefly.transaction_mail_address') }}</td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <input type="text" class="form-control font-monospace" id="transaction-mail-address"
+                                               value="{{ $mailAddress }}" readonly
+                                               title="{{ __('firefly.transaction_mail_address_help') }}">
+                                        <button class="btn btn-outline-secondary" type="button" id="transaction-mail-copy"
+                                                title="{{ __('firefly.transaction_mail_copy') }}">
+                                            <span class="bi bi-clipboard"></span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        @endif
                         </tbody>
                     </table>
                 </div>
@@ -567,6 +583,31 @@
         var cloneAndEditUrl = '{{ route('transactions.clone') }}?redirect=edit';
     </script>
     @vite(['js/pages/transactions/show.js'])
+
+    @if(null !== $mailAddress)
+        <script nonce="{{ $JS_NONCE }}">
+            (function () {
+                var field = document.getElementById('transaction-mail-address');
+                var button = document.getElementById('transaction-mail-copy');
+                var icon = button.querySelector('.bi');
+
+                // A click on the field selects all of it, so a manual copy takes the whole address.
+                field.addEventListener('focus', function () { field.select(); });
+
+                button.addEventListener('click', function () {
+                    field.select();
+                    var copied = navigator.clipboard
+                        ? navigator.clipboard.writeText(field.value)
+                        : Promise.resolve(document.execCommand('copy'));
+
+                    copied.then(function () {
+                        icon.className = 'bi bi-clipboard-check';
+                        setTimeout(function () { icon.className = 'bi bi-clipboard'; }, 1500);
+                    });
+                });
+            })();
+        </script>
+    @endif
 
     {{-- new auto complete --}}
      <script src="v1/js/lib/bootstrap-simple-autocomplete.js?v={{ $FF_BUILD_TIME }}"
