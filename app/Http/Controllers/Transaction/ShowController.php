@@ -32,6 +32,7 @@ use FireflyIII\Models\TransactionJournal;
 use FireflyIII\Repositories\AuditLogEntry\ALERepositoryInterface;
 use FireflyIII\Repositories\TransactionGroup\TransactionGroupRepositoryInterface;
 use FireflyIII\Support\JsonApi\Enrichments\TransactionGroupEnrichment;
+use FireflyIII\Support\TransactionMailAddress;
 use FireflyIII\Transformers\TransactionGroupTransformer;
 use FireflyIII\User;
 use Illuminate\Contracts\View\Factory;
@@ -152,6 +153,7 @@ final class ShowController extends Controller
 
         return view('transactions.show', [
             'transactionGroup' => $transactionGroup,
+            'mailAddress'      => TransactionMailAddress::forGroup((int) $transactionGroup->id),
             'amounts'          => $amounts,
             'first'            => $first,
             'type'             => $type,
