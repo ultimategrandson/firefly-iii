@@ -27,10 +27,15 @@ namespace FireflyIII\Http\Controllers\Transaction;
 use FireflyIII\Events\Model\TransactionGroup\TransactionGroupEventFlags;
 use FireflyIII\Events\Model\TransactionGroup\TransactionGroupEventObjects;
 use FireflyIII\Events\Model\TransactionGroup\UpdatedSingleTransactionGroup;
+use FireflyIII\Enums\AccountTypeEnum;
+use FireflyIII\Enums\TransactionTypeEnum;
 use FireflyIII\Events\Model\Webhook\WebhookMessagesRequestSending;
+use FireflyIII\Factory\AccountFactory;
 use FireflyIII\Http\Controllers\Controller;
 use FireflyIII\Http\Requests\BulkEditJournalRequest;
+use FireflyIII\Models\Account;
 use FireflyIII\Models\TransactionJournal;
+use FireflyIII\Repositories\Account\AccountRepositoryInterface;
 use FireflyIII\Repositories\Budget\BudgetRepositoryInterface;
 use FireflyIII\Repositories\Journal\JournalRepositoryInterface;
 use FireflyIII\Services\Internal\Update\JournalUpdateService;
@@ -109,10 +114,11 @@ final class BulkController extends Controller
             $journalId = (int) $journalId;
             $journal   = $this->repository->find($journalId);
             if (null !== $journal) {
+                // Accounts first: they can change the journal's type, and only a withdrawal takes a budget.
+                $resultD = $this->updateJournalAccounts($journal, $ignoreSource ? '' : $sourceName, $ignoreDest ? '' : $destName);
                 $resultA = $this->updateJournalBudget($journal, $ignoreBudget, $request->integer('budget_id'));
                 $resultB = $this->updateJournalTags($journal, $tagsAction, $tags);
                 $resultC = $this->updateJournalCategory($journal, $ignoreCategory, $request->convertString('category'));
-                $resultD = $this->updateJournalAccounts($journal, $ignoreSource ? '' : $sourceName, $ignoreDest ? '' : $destName);
                 if ($resultA || $resultB || $resultC || $resultD) {
                     ++$count;
                     $collection->push($journal);
@@ -139,20 +145,21 @@ final class BulkController extends Controller
     }
 
     /**
-     * Moves the journal to the named source and/or destination account (an empty name leaves that side alone), finding
-     * the account by name for the journal's type, so an unknown name makes a new expense or revenue account. A journal
-     * the account doesn't fit is left as it was, as are reconciled journals, whose accounts can't be changed.
+     * Moves the journal to the named source and/or destination account (an empty name leaves that side alone).
+     *
+     * A name is looked for among asset and liability accounts first, then among expense (destination) or revenue
+     * (source) accounts, and only an unknown name makes a new expense or revenue account. The journal's type then
+     * follows from the pair, as on the convert page: naming an asset account as a withdrawal's destination makes it a
+     * transfer. Passing only a name, the update service looked it up by the journal's current type, so an asset
+     * account's name made a new expense account of that name and the withdrawal pointed at it.
+     *
+     * Left as it was: a reconciled journal, a pair that makes no transaction (an expense account as a deposit's
+     * destination), the same account on both sides, and two own accounts in different currencies, which need the
+     * amounts the convert page asks for.
      */
     private function updateJournalAccounts(TransactionJournal $journal, string $sourceName, string $destName): bool
     {
-        $data = [];
-        if ('' !== $sourceName) {
-            $data['source_name'] = $sourceName;
-        }
-        if ('' !== $destName) {
-            $data['destination_name'] = $destName;
-        }
-        if (0 === count($data)) {
+        if ('' === $sourceName && '' === $destName) {
             return false;
         }
         if ($journal->transactions()->where('reconciled', true)->exists()) {
@@ -160,22 +167,113 @@ final class BulkController extends Controller
 
             return false;
         }
-        $before  = $journal->transactions()->orderBy('id')->pluck('account_id')->all();
+        $sourceTransaction = $journal->transactions()->where('amount', '<', 0)->first();
+        $destTransaction   = $journal->transactions()->where('amount', '>', 0)->first();
+        if (null === $sourceTransaction?->account || null === $destTransaction?->account) {
+            return false;
+        }
+
+        [$source, $sourceType] = $this->resolveAccount($sourceName, AccountTypeEnum::REVENUE->value, $sourceTransaction->account);
+        [$dest, $destType]     = $this->resolveAccount($destName, AccountTypeEnum::EXPENSE->value, $destTransaction->account);
+
+        $type              = config('firefly.account_to_transaction')[$sourceType][$destType] ?? null;
+        $movable           = [TransactionTypeEnum::WITHDRAWAL->value, TransactionTypeEnum::DEPOSIT->value, TransactionTypeEnum::TRANSFER->value];
+        if (!in_array($type, $movable, true)) {
+            Log::debug(sprintf('Journal #%d: a %s account cannot pay a %s account, left alone.', $journal->id, $sourceType, $destType));
+
+            return false;
+        }
+        if ($source instanceof Account && $dest instanceof Account && $source->id === $dest->id) {
+            Log::debug(sprintf('Journal #%d would have #%d on both sides, left alone.', $journal->id, $source->id));
+
+            return false;
+        }
+        if ($source instanceof Account && $dest instanceof Account && !$this->sameCurrency($source, $dest)) {
+            Log::debug(sprintf('Journal #%d would move between currencies, left alone.', $journal->id));
+
+            return false;
+        }
+
+        // Only now, with the change known to be valid, is a new expense or revenue account made.
+        $source ??= $this->newAccount($sourceName, $sourceType);
+        $dest   ??= $this->newAccount($destName, $destType);
+
+        $before            = [(int) $sourceTransaction->account_id, (int) $destTransaction->account_id, $journal->transactionType->type];
 
         /** @var JournalUpdateService $service */
-        $service = app(JournalUpdateService::class);
+        $service           = app(JournalUpdateService::class);
         $service->setTransactionJournal($journal);
-        $service->setData($data);
+        $service->setData(['source_id' => $source->id, 'destination_id' => $dest->id, 'type' => $type]);
         $service->update();
-        $after   = $journal->transactions()->orderBy('id')->pluck('account_id')->all();
-        Log::debug(sprintf('Bulk changed the accounts of journal #%d from %s to %s', $journal->id, implode(',', $before), implode(',', $after)));
+        $journal->refresh();
+
+        // Budgets and subscriptions belong to withdrawals only; the update service clears a transfer's budget but
+        // keeps a subscription, and keeps both on a deposit.
+        if (TransactionTypeEnum::WITHDRAWAL->value !== $journal->transactionType->type) {
+            $journal->budgets()->sync([]);
+            if (null !== $journal->bill_id) {
+                $journal->bill_id = null;
+                $journal->save();
+            }
+        }
+
+        $after             = [
+            (int) $journal->transactions()->where('amount', '<', 0)->value('account_id'),
+            (int) $journal->transactions()->where('amount', '>', 0)->value('account_id'),
+            $journal->transactionType->type,
+        ];
+        Log::debug(sprintf('Bulk changed journal #%d from %s to %s', $journal->id, implode(',', $before), implode(',', $after)));
 
         return $before !== $after;
     }
 
+    /**
+     * The account a name means, with its type. An empty name keeps the current account. An unknown name returns no
+     * account and the creatable type, so the caller can check the change before anything is made.
+     *
+     * @return array{0: null|Account, 1: string}
+     */
+    private function resolveAccount(string $name, string $creatableType, Account $current): array
+    {
+        if ('' === $name) {
+            return [$current, $current->accountType->type];
+        }
+
+        /** @var AccountRepositoryInterface $accounts */
+        $accounts = app(AccountRepositoryInterface::class);
+        $accounts->setUser(auth()->user());
+        $own      = [AccountTypeEnum::ASSET->value, AccountTypeEnum::LOAN->value, AccountTypeEnum::DEBT->value, AccountTypeEnum::MORTGAGE->value];
+        $account  = $accounts->findByName($name, $own) ?? $accounts->findByName($name, [$creatableType]);
+
+        return null === $account ? [null, $creatableType] : [$account, $account->accountType->type];
+    }
+
+    private function newAccount(string $name, string $type): Account
+    {
+        /** @var AccountFactory $factory */
+        $factory = app(AccountFactory::class);
+        $factory->setUser(auth()->user());
+
+        return $factory->findOrCreate($name, $type);
+    }
+
+    /**
+     * Expense and revenue accounts carry no currency of their own, so only a pair of own accounts can disagree.
+     */
+    private function sameCurrency(Account $source, Account $dest): bool
+    {
+        /** @var AccountRepositoryInterface $accounts */
+        $accounts = app(AccountRepositoryInterface::class);
+        $accounts->setUser(auth()->user());
+        $from     = $accounts->getAccountCurrency($source);
+        $to       = $accounts->getAccountCurrency($dest);
+
+        return null === $from || null === $to || $from->id === $to->id;
+    }
+
     private function updateJournalBudget(TransactionJournal $journal, bool $ignoreUpdate, int $budgetId): bool
     {
-        if ($ignoreUpdate) {
+        if ($ignoreUpdate || TransactionTypeEnum::WITHDRAWAL->value !== $journal->transactionType->type) {
             return false;
         }
         Log::debug(sprintf('Set budget to %d', $budgetId));

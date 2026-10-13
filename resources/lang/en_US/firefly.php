@@ -2201,7 +2201,7 @@ return [
     'mass_edit'                                           => 'Edit selected individually',
     'no_bulk_source_account'                              => 'Don\'t update source account',
     'no_bulk_destination_account'                         => 'Don\'t update destination account',
-    'bulk_accounts_explain'                               => 'An account left empty is not changed. A name that matches no account makes a new expense or revenue account. A transaction the new account does not fit (such as an expense account as a deposit\'s destination) is left as it was.',
+    'bulk_accounts_explain'                               => 'An account left empty is not changed. The type follows the accounts: naming one of your own accounts as a withdrawal\'s destination makes it a transfer, and so on. A name that matches no account makes a new expense or revenue account. A transaction the accounts do not fit (such as an expense account as a deposit\'s destination) is left as it was, as is a move between accounts in different currencies, which needs the convert page.',
     'bulk_edit'                                           => 'Edit selected in bulk',
     'mass_delete'                                         => 'Delete selected',
     'cannot_edit_other_fields'                            => 'You cannot mass-edit other fields than the ones here, because there is no room to show them. Please follow the link and edit them by one-by-one, if you need to edit these fields.',
