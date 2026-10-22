@@ -357,7 +357,7 @@ function drawMultiCurrencyLineChart(url, holder, anonymous, drawTodayMarker, col
 
                                 // is the marker to be set on this date?
                                 let date = new Date(j);
-                                dates.push(format(date, "yyyy-MM-dd"));
+                                dates.push(formatDate(date, "yyyy-MM-dd"));
                                 if (drawTodayMarker && isSameDay(date, today)) {
                                     drawTodayLabel = j;
                                     drawTodayIndex = labelCount;
@@ -662,7 +662,7 @@ function dueDateAnnotations(dueDates, labels, yScaleID) {
         return true; // redraw
     };
     for (let i = 0; i < dueDates.length; i++) {
-        let label = format(
+        let label = formatDate(
             new Date(dueDates[i].date + "T00:00:00"),
             i18next.t("config.month_and_day_fns", { lng: locale }),
             locale,

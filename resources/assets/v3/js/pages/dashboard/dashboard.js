@@ -127,9 +127,9 @@ let index = function () {
                     true,
                     {
                         dueDatesUrl:
-                            "chart/account/due-dates/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
+                            "chart/account/due-dates/" + formatDate(start, "yyyy-LL-dd") + "/" + formatDate(end, "yyyy-LL-dd"),
                         projectionUrl:
-                            "chart/account/projection/" + format(start, "yyyy-LL-dd") + "/" + format(end, "yyyy-LL-dd"),
+                            "chart/account/projection/" + formatDate(start, "yyyy-LL-dd") + "/" + formatDate(end, "yyyy-LL-dd"),
                     },
                 );
 
