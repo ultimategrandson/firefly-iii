@@ -381,6 +381,40 @@ class Amount
         return $currency;
     }
 
+    /**
+     * The localeconv() fields getAmountJsConfig() needs, read from an ICU currency pattern such as
+     * "¤#,##0.00" or "¤ #,##0.00;¤ -#,##0.00". The positive amount carries no sign.
+     */
+    public static function getLocaleInfoFromPattern(string $pattern, string $minusSign): array
+    {
+        $patterns = explode(';', $pattern);
+        $info     = ['positive_sign' => '', 'negative_sign' => $minusSign, 'p_sign_posn' => 1];
+        foreach (['p' => $patterns[0], 'n' => $patterns[1] ?? '-'.$patterns[0]] as $prefix => $current) {
+            preg_match('/[#0][#0,.]*/', $current, $match, PREG_OFFSET_CAPTURE);
+            [$amount, $start]                          = $match[0];
+            $end                                       = $start + strlen($amount);
+            $symbol                                    = (int) strpos($current, '¤');
+            $between                                   = $symbol < $start ? substr($current, $symbol + strlen('¤'), $start - $symbol - strlen('¤')) : substr($current, $end, $symbol - $end);
+
+            $info[sprintf('%s_cs_precedes', $prefix)]  = $symbol < $start;
+            // a sign between the symbol and the amount takes the space's place, as glibc has it.
+            $info[sprintf('%s_sep_by_space', $prefix)] = 1 === preg_match('/^[\s\x{00a0}\x{202f}]+$/u', $between);
+            if ('n' === $prefix) {
+                // where the sign goes, as localeconv() numbers it:
+                $sign                = strpos($current, '-');
+                $info['n_sign_posn'] = match (true) {
+                    str_contains($current, '(')                        => 0,
+                    false === $sign, $sign < $symbol && $sign < $start => 1,
+                    $sign > $symbol && $sign > $start                  => 2,
+                    $sign < $symbol                                    => 3,
+                    default                                            => 4,
+                };
+            }
+        }
+
+        return $info;
+    }
+
     private function getLocaleField(array $info, string $field): bool
     {
         return is_bool($info[$field]) && $info[$field] || is_int($info[$field]) && 1 === $info[$field];
@@ -397,6 +431,13 @@ class Amount
 
         setlocale(LC_MONETARY, $array);
         $info                      = localeconv();
+        $fmt                       = new NumberFormatter($locale, NumberFormatter::CURRENCY);
+
+        // musl (Alpine) has no monetary locale data, and a locale that isn't installed falls back to "C":
+        // either way localeconv() leaves these at CHAR_MAX, so read them from the ICU pattern instead.
+        if (127 === $info['n_sign_posn']) {
+            $info = array_merge($info, self::getLocaleInfoFromPattern($fmt->getPattern(), $fmt->getSymbol(NumberFormatter::MINUS_SIGN_SYMBOL)));
+        }
 
         // correct variables
         $info['n_cs_precedes']     = $this->getLocaleField($info, 'n_cs_precedes');
@@ -404,8 +445,6 @@ class Amount
 
         $info['n_sep_by_space']    = $this->getLocaleField($info, 'n_sep_by_space');
         $info['p_sep_by_space']    = $this->getLocaleField($info, 'p_sep_by_space');
-
-        $fmt                       = new NumberFormatter($locale, NumberFormatter::CURRENCY);
 
         $info['mon_decimal_point'] = $fmt->getSymbol(NumberFormatter::MONETARY_SEPARATOR_SYMBOL);
         $info['mon_thousands_sep'] = $fmt->getSymbol(NumberFormatter::MONETARY_GROUPING_SEPARATOR_SYMBOL);
