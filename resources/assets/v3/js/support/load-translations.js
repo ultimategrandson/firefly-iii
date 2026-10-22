@@ -45,6 +45,8 @@ function loadTranslations(language, locale) {
                 backendOptions: [
                     {
                         expirationTime: expireTime,
+                        // a new version brings new translations, so it can't use the cached ones:
+                        defaultVersion: document.head.querySelector('meta[name="x-firefly-iii-version"]')?.content,
                         loadPath: "./v3/i18n/{{lng}}.json",
                     },
                     {
