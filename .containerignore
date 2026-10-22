@@ -1,0 +1,19 @@
+# Kept out of deploy/Containerfile's build context: dependencies and assets are built inside it.
+.git
+.github
+.ci
+node_modules
+resources/assets/*/node_modules
+vendor
+public/build
+public/hot
+.env
+storage/*.key
+storage/logs/*
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/database/*.sqlite
+bootstrap/cache/*.php
+coverage.xml
+output.txt
