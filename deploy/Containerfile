@@ -5,12 +5,12 @@
 # and rebuild; check the copied files still apply against that release first.
 #
 #   podman build --format docker -f deploy/Containerfile \
-#     --build-arg REVISION=$(git rev-parse HEAD) -t git.484838.xyz/home/firefly-iii:6.7.6-patched .
-#   podman push git.484838.xyz/home/firefly-iii:6.7.6-patched
+#     --build-arg REVISION=$(git rev-parse HEAD) -t git.484838.xyz/home/firefly-iii:6.7.9-patched .
+#   podman push git.484838.xyz/home/firefly-iii:6.7.9-patched
 #
 # --format docker keeps the base image's HEALTHCHECK; the OCI format silently drops it.
 
-ARG BASE=docker.io/fireflyiii/core:version-6.7.6@sha256:1ddb762382b9e04270ca68dc0ba73291ed24e8701ec423f267bfcde7ad7ecf27
+ARG BASE=docker.io/fireflyiii/core:version-6.7.9@sha256:4409f9f0f87378ba95d40811352f4f49338d276bb638c1e6d18a5579f332fbe8
 FROM ${BASE}
 ARG REVISION=unknown
 
@@ -18,7 +18,7 @@ LABEL org.opencontainers.image.title="Firefly III (patched)" \
       org.opencontainers.image.source="https://git.484838.xyz/Home/firefly-iii" \
       org.opencontainers.image.url="https://git.484838.xyz/Home/firefly-iii/src/branch/patched/6.7.6" \
       org.opencontainers.image.revision="${REVISION}" \
-      org.opencontainers.image.description="Firefly III 6.7.6 with per-journal stop processing for applied rule groups, budgets on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, a projected total on the dashboard accounts chart, a page to review what was created after a cut-off, bulk changes to source and destination accounts, pruning of empty new expense and revenue accounts, a subscription column on transaction lists, and each transaction's upfirefly mail address. Built from https://git.484838.xyz/Home/firefly-iii (branch patched/6.7.6)."
+      org.opencontainers.image.description="Firefly III 6.7.9 with per-journal stop processing for applied rule groups, attachments on the account all-transactions list, every chart label, a reconciled column on account lists, running balances in their own currency, balances shown from the user's side, subscription amounts on one line and without repeats, due dates drawn on the account charts, a projected total on the dashboard accounts chart, a page to review what was created after a cut-off, bulk changes to source and destination accounts, pruning of empty new expense and revenue accounts, a subscription column on transaction lists, and each transaction's upfirefly mail address. Built from https://git.484838.xyz/Home/firefly-iii (branch patched/6.7.6)."
 
 # Applying a rule group honours "stop processing" per journal.
 COPY --chown=www-data:www-data app/TransactionRules/Engine/SearchRuleEngine.php /var/www/html/app/TransactionRules/Engine/SearchRuleEngine.php
